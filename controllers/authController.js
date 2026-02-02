@@ -4,17 +4,20 @@ const User = require('../models/User');
 
 // Generate JWT token
 const generateToken = (userId) => {
+    // Ensure expiresIn is clean (remove potential whitespace from env vars)
+    const expiresIn = (process.env.JWT_EXPIRES_IN || '7d').trim();
+
     return jwt.sign(
         { userId },
         process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        { expiresIn }
     );
 };
 
 // Set authentication cookie
 const setAuthCookie = (res, token) => {
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
     res.cookie('authToken', token, {
         httpOnly: true, // Prevent XSS attacks
         secure: isProduction, // HTTPS only in production
@@ -78,14 +81,14 @@ const register = async (req, res) => {
 
     } catch (error) {
         console.error('Registration error:', error);
-        
+
         if (error.code === 11000) {
             return res.status(409).json({
                 success: false,
                 message: 'User with this email already exists'
             });
         }
-        
+
         res.status(500).json({
             success: false,
             message: 'Internal server error during registration'
@@ -205,7 +208,7 @@ const getProfile = async (req, res) => {
 const checkAuth = async (req, res) => {
     try {
         const token = req.cookies.authToken;
-        
+
         if (!token) {
             return res.json({
                 success: false,
@@ -216,7 +219,7 @@ const checkAuth = async (req, res) => {
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.userId).select('-password');
-        
+
         if (!user || !user.isActive) {
             return res.json({
                 success: false,
