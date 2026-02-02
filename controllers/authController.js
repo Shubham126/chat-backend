@@ -4,8 +4,13 @@ const User = require('../models/User');
 
 // Generate JWT token
 const generateToken = (userId) => {
-    // Ensure expiresIn is clean (remove potential whitespace from env vars)
-    const expiresIn = (process.env.JWT_EXPIRES_IN || '7d').trim();
+    // Ensure expiresIn is clean and valid
+    let expiresIn = (process.env.JWT_EXPIRES_IN || '').trim();
+    if (!expiresIn) {
+        expiresIn = '7d';
+    }
+
+    console.log(`🔑 Generating token with expiresIn: "${expiresIn}"`);
 
     return jwt.sign(
         { userId },
