@@ -4,13 +4,20 @@ const User = require('../models/User');
 
 // Generate JWT token
 const generateToken = (userId) => {
-    // Ensure expiresIn is clean and valid
-    let expiresIn = (process.env.JWT_EXPIRES_IN || '').trim();
-    if (!expiresIn) {
-        expiresIn = '7d';
+    // Use hardcoded default to avoid environment variable issues
+    const DEFAULT_EXPIRY = '7d';
+
+    // Get and validate the environment variable
+    let expiresIn = process.env.JWT_EXPIRES_IN;
+
+    // Only use env var if it exists, is not empty, and doesn't contain duplicates
+    if (!expiresIn || typeof expiresIn !== 'string' || expiresIn.trim() === '' || expiresIn.includes('7d7d')) {
+        expiresIn = DEFAULT_EXPIRY;
+    } else {
+        expiresIn = expiresIn.trim();
     }
 
-    console.log(`🔑 Generating token with expiresIn: "${expiresIn}"`);
+    console.log(`🔑 Generating token with expiresIn: "${expiresIn}" (from ${process.env.JWT_EXPIRES_IN ? 'env' : 'default'})`);
 
     return jwt.sign(
         { userId },
@@ -25,8 +32,8 @@ const setAuthCookie = (res, token) => {
 
     res.cookie('authToken', token, {
         httpOnly: true, // Prevent XSS attacks
-        secure: isProduction, // HTTPS only in production
-        sameSite: 'strict', // CSRF protection
+        secure: true, // Always use HTTPS (required for sameSite: 'none')
+        sameSite: 'none', // Allow cross-origin cookies (frontend on Netlify, backend on Render)
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         path: '/'
     });
@@ -168,8 +175,8 @@ const logout = (req, res) => {
         // Clear the authentication cookie
         res.clearCookie('authToken', {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: true,
+            sameSite: 'none',
             path: '/'
         });
 
