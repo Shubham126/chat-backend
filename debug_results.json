@@ -1,0 +1,21 @@
+{
+  "uri": "mongodb+srv://chroma...",
+  "checks": [
+    {
+      "search": "Subham123@admin.com",
+      "found": false,
+      "storedEmail": null
+    },
+    {
+      "search": "subham123@admin.com",
+      "found": false,
+      "storedEmail": null
+    }
+  ],
+  "recentUsers": [
+    {
+      "email": "test@chatflow.ai",
+      "name": "Test User"
+    }
+  ]
+}
