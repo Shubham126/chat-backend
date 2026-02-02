@@ -16,6 +16,9 @@ const { corsWithApiKey } = require('./middleware/apiKeyAuth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy - required for rate limiting behind Render/Heroku load balancers
+app.set('trust proxy', 1);
+
 // Global rate limiting - more lenient for development
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
