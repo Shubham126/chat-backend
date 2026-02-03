@@ -37,7 +37,7 @@ class ScrapeController {
 
             // Scrape the website
             const scrapedData = await scrapingService.scrapeWebsite(url);
-            
+
             // Save to MongoDB using the new mongo storage service
             const fileResult = await mongoStorageService.saveScrapedData(scrapedData, userId);
 
@@ -77,13 +77,13 @@ class ScrapeController {
 
             // Scrape the website
             const scrapedData = await scrapingService.scrapeWebsite(url);
-            
+
             // Build context from scraped data
             const context = contextBuilder.buildContext(scrapedData, question);
-            
+
             // Get AI response
             const aiResponse = await geminiService.getResponse(context, question);
-            
+
             // Note: Session storage removed as it's not needed for current functionality
             // All scraped data is now stored via mongoStorageService.saveScrapedData()
 
@@ -109,7 +109,7 @@ class ScrapeController {
                     message: 'User authentication required'
                 });
             }
-            
+
             const files = await mongoStorageService.getFilesList(userId);
             res.json({
                 success: true,
@@ -123,7 +123,7 @@ class ScrapeController {
     async deleteHistory(req, res, next) {
         try {
             const { id } = req.params;
-            
+
             // Extract user ID from either authentication method
             const userId = this.getUserId(req);
             if (!userId) {
@@ -132,7 +132,7 @@ class ScrapeController {
                     message: 'User authentication required'
                 });
             }
-            
+
             await mongoStorageService.deleteFile(id, userId);
             res.json({
                 success: true,
@@ -146,7 +146,7 @@ class ScrapeController {
     async getFileContent(req, res, next) {
         try {
             const { id } = req.params;
-            
+
             // Extract user ID from either authentication method
             const userId = this.getUserId(req);
             if (!userId) {
@@ -155,7 +155,7 @@ class ScrapeController {
                     message: 'User authentication required'
                 });
             }
-            
+
             const fileContent = await mongoStorageService.getFileContent(id, userId);
             res.json({
                 success: true,
@@ -170,7 +170,7 @@ class ScrapeController {
         try {
             const { id } = req.params;
             const { customName } = req.body;
-            
+
             if (!customName || !customName.trim()) {
                 return res.status(400).json({
                     success: false,
@@ -207,7 +207,7 @@ class ScrapeController {
                     message: 'User authentication required'
                 });
             }
-            
+
             const stats = await mongoStorageService.getStorageStats(userId);
             res.json({
                 success: true,
@@ -222,10 +222,21 @@ class ScrapeController {
         try {
             const { fileId, message } = req.body;
 
-            if (!fileId || !message) {
+            // Validate message
+            if (!message || !message.trim()) {
                 return res.status(400).json({
                     success: false,
-                    message: 'File ID and message are required'
+                    message: 'Message is required'
+                });
+            }
+
+            // Validate fileId with helpful error message
+            if (!fileId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No website selected. Please configure your integration settings in the dashboard and select a website to chat with.',
+                    errorCode: 'NO_WEBSITE_SELECTED',
+                    helpUrl: 'https://chatflow-ai.com/docs/integration-setup'
                 });
             }
 
@@ -240,17 +251,18 @@ class ScrapeController {
 
             // Get the file content (filter by user)
             const fileContent = await mongoStorageService.getFileContent(fileId, userId);
-            
+
             if (!fileContent) {
                 return res.status(404).json({
                     success: false,
-                    message: 'File not found or access denied'
+                    message: 'Website not found or access denied. The selected website may have been deleted or you may not have permission to access it.',
+                    errorCode: 'WEBSITE_NOT_FOUND'
                 });
             }
 
             // Build context from scraped data for Gemini AI
             const context = contextBuilder.buildContext(fileContent.scrapedData, message);
-            
+
             // Get AI response using OpenRouter (same as dashboard)
             const aiResponse = await openaiService.getResponse(context, message);
 
@@ -272,7 +284,7 @@ class ScrapeController {
         try {
             const { id } = req.params;
             const userId = this.getUserId(req);
-            
+
             if (!userId) {
                 return res.status(401).json({
                     success: false,
@@ -282,7 +294,7 @@ class ScrapeController {
 
             // Find the scraped data by ID and user
             const scrapedData = await mongoStorageService.getScrapedDataById(id, userId);
-            
+
             if (!scrapedData) {
                 return res.status(404).json({
                     success: false,
@@ -346,7 +358,7 @@ class ScrapeController {
 
             // Get user's available websites
             const websites = await mongoStorageService.getFilesList(userId);
-            
+
             // Build SDK configuration
             const sdkConfig = {
                 user: {
@@ -365,12 +377,12 @@ class ScrapeController {
 
             // If user has a selected website, get its details
             if (userSettings.integrationSettings.selectedWebsiteId) {
-                const selectedWebsite = websites.find(site => 
+                const selectedWebsite = websites.find(site =>
                     site.id === userSettings.integrationSettings.selectedWebsiteId
                 );
                 if (selectedWebsite) {
                     sdkConfig.selectedWebsite = selectedWebsite;
-                    
+
                     // If theme choice is website, get theme data
                     if (userSettings.integrationSettings.themeChoice === 'website') {
                         try {
