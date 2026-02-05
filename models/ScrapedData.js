@@ -7,26 +7,26 @@ const ScrapedDataSchema = new mongoose.Schema({
         required: true,
         default: () => Date.now().toString()
     },
-    
+
     // Website information
     url: {
         type: String,
         required: true,
         trim: true
     },
-    
+
     title: {
         type: String,
         required: true,
         trim: true
     },
-    
+
     description: {
         type: String,
         default: '',
         trim: true
     },
-    
+
     // Scraped content - comprehensive data structure
     headings: [{
         level: {
@@ -39,11 +39,11 @@ const ScrapedDataSchema = new mongoose.Schema({
         },
         id: String
     }],
-    
+
     paragraphs: [{
         type: String
     }],
-    
+
     links: [{
         url: {
             type: String,
@@ -55,7 +55,7 @@ const ScrapedDataSchema = new mongoose.Schema({
         },
         title: String
     }],
-    
+
     // Enhanced content types - using Mixed for flexible complex data
     lists: [mongoose.Schema.Types.Mixed],
     tables: [mongoose.Schema.Types.Mixed],
@@ -67,30 +67,30 @@ const ScrapedDataSchema = new mongoose.Schema({
     footer: [mongoose.Schema.Types.Mixed],
     header: [mongoose.Schema.Types.Mixed],
     allText: [mongoose.Schema.Types.Mixed],
-    
+
     // Complete content extraction
     textContent: String,
     articles: [mongoose.Schema.Types.Mixed],
     sections: [mongoose.Schema.Types.Mixed],
     completeContent: String,
     rawHTML: mongoose.Schema.Types.Mixed,
-    
+
     // New enhanced scraping fields
     scrapingMethod: {
         type: String,
         default: 'enhanced'
     },
-    
+
     // Internal links found but not scraped
     storedInternalLinks: [{
         type: String
     }],
-    
+
     internalLinksFound: {
         type: Number,
         default: 0
     },
-    
+
     // Additional URLs that were actually scraped
     additionalUrls: [{
         url: String,
@@ -98,12 +98,12 @@ const ScrapedDataSchema = new mongoose.Schema({
         title: String,
         timestamp: Date
     }],
-    
+
     totalUrlsScraped: {
         type: Number,
         default: 1
     },
-    
+
     // Website theme data
     theme: {
         colors: {
@@ -140,24 +140,24 @@ const ScrapedDataSchema = new mongoose.Schema({
         },
         timestamp: Date
     },
-    
+
     // Metadata fields
     keywords: String,
     author: String,
-    
+
     // File metadata (for backward compatibility)
     fileName: {
         type: String,
         required: true
     },
-    
+
     // Enhanced scraping metadata
     scrapingMethod: {
         type: String,
         enum: ['enhanced'],
         default: 'enhanced'
     },
-    
+
     additionalUrls: [{
         url: {
             type: String,
@@ -171,12 +171,12 @@ const ScrapedDataSchema = new mongoose.Schema({
         title: String,
         timestamp: Date
     }],
-    
+
     totalUrlsScraped: {
         type: Number,
         default: 1
     },
-    
+
     // Additional metadata
     metadata: {
         fileSize: {
@@ -201,20 +201,25 @@ const ScrapedDataSchema = new mongoose.Schema({
             default: false
         }
     },
-    
+
     // User association (for API key filtering)
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    
+
+    // Website-specific API key (new architecture)
+    websiteApiKey: {
+        type: String
+    },
+
     // Timestamps
     savedAt: {
         type: Date,
         default: Date.now
     },
-    
+
     scrapedAt: {
         type: Date,
         default: Date.now
@@ -232,19 +237,20 @@ ScrapedDataSchema.index({ savedAt: -1 }); // Sort by most recent
 ScrapedDataSchema.index({ fileId: 1 }, { unique: true });
 ScrapedDataSchema.index({ userId: 1 }); // Filter by user
 ScrapedDataSchema.index({ userId: 1, savedAt: -1 }); // User files by date
+ScrapedDataSchema.index({ websiteApiKey: 1 }, { unique: true, sparse: true }); // Website-specific API key
 
 // Virtual for display name (backward compatibility)
-ScrapedDataSchema.virtual('displayName').get(function() {
+ScrapedDataSchema.virtual('displayName').get(function () {
     return this.title || this.fileName;
 });
 
 // Virtual for formatted file size
-ScrapedDataSchema.virtual('formattedFileSize').get(function() {
+ScrapedDataSchema.virtual('formattedFileSize').get(function () {
     return this.formatFileSize(this.metadata.fileSize);
 });
 
 // Instance method to format file size
-ScrapedDataSchema.methods.formatFileSize = function(bytes) {
+ScrapedDataSchema.methods.formatFileSize = function (bytes) {
     if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -252,10 +258,17 @@ ScrapedDataSchema.methods.formatFileSize = function(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
+// Static method to generate website-specific API key
+ScrapedDataSchema.statics.generateWebsiteApiKey = function () {
+    const crypto = require('crypto');
+    const randomBytes = crypto.randomBytes(32).toString('hex');
+    return `wk_${randomBytes}`;
+};
+
 // Static method to generate filename (like the old system)
-ScrapedDataSchema.statics.generateFileName = function(customName, url) {
+ScrapedDataSchema.statics.generateFileName = function (customName, url) {
     let baseName;
-    
+
     if (customName && customName.trim()) {
         baseName = customName.trim()
             .replace(/[<>:"/\\|?*]/g, '')
@@ -269,30 +282,30 @@ ScrapedDataSchema.statics.generateFileName = function(customName, url) {
             baseName = 'website';
         }
     }
-    
+
     const now = new Date();
     const date = now.toISOString().split('T')[0];
     const time = now.toTimeString().split(' ')[0].replace(/:/g, '-');
-    
+
     return `${baseName} ${date} ${time}.json`;
 };
 
 // Static method to create from scraped data (compatibility with old service)
-ScrapedDataSchema.statics.createFromScrapedData = function(scrapedData) {
+ScrapedDataSchema.statics.createFromScrapedData = function (scrapedData) {
     const fileName = this.generateFileName(null, scrapedData.url);
-    
+
     return new this({
         url: scrapedData.url,
         title: scrapedData.title || 'No title found',
         description: scrapedData.description || '',
         keywords: scrapedData.keywords || '',
         author: scrapedData.author || '',
-        
+
         // Basic content
         headings: scrapedData.headings || [],
         paragraphs: scrapedData.paragraphs || [],
         links: scrapedData.links || [],
-        
+
         // Enhanced content types
         lists: scrapedData.lists || [],
         tables: scrapedData.tables || [],
@@ -304,22 +317,22 @@ ScrapedDataSchema.statics.createFromScrapedData = function(scrapedData) {
         footer: scrapedData.footer || [],
         header: scrapedData.header || [],
         allText: scrapedData.allText || [],
-        
+
         // Complete content
         textContent: scrapedData.textContent || '',
         articles: scrapedData.articles || [],
         sections: scrapedData.sections || [],
         completeContent: scrapedData.completeContent || '',
         rawHTML: scrapedData.rawHTML || {},
-        
+
         // Website theme data
         theme: scrapedData.theme || {},
-        
+
         // Enhanced scraping metadata
         scrapingMethod: scrapedData.scrapingMethod || 'enhanced',
         additionalUrls: scrapedData.additionalUrls || [],
         totalUrlsScraped: scrapedData.totalUrlsScraped || 1,
-        
+
         // File metadata
         fileName: fileName,
         metadata: {
@@ -333,7 +346,7 @@ ScrapedDataSchema.statics.createFromScrapedData = function(scrapedData) {
 };
 
 // Pre-save middleware to calculate file size
-ScrapedDataSchema.pre('save', function(next) {
+ScrapedDataSchema.pre('save', function (next) {
     if (this.isNew || this.isModified()) {
         // Calculate approximate file size based on ALL content including enhanced fields
         const jsonString = JSON.stringify({

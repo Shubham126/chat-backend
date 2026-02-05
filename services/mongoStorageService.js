@@ -21,16 +21,22 @@ class MongoStorageService {
     async saveScrapedData(scrapedData, userId) {
         try {
             await this.ensureConnection();
-            
+
             // Create new document using the model's static method
             const document = ScrapedData.createFromScrapedData(scrapedData);
-            
+
             // Associate with user
             document.userId = userId;
-            
+
+            // AUTO-GENERATE API KEY if not exists (new website)
+            if (!document.websiteApiKey) {
+                document.websiteApiKey = ScrapedData.generateWebsiteApiKey();
+                console.log(`🔑 Auto-generated API key for new website: ${document.title}`);
+            }
+
             // Save to MongoDB
             const savedDocument = await document.save();
-            
+
             // Enhanced logging for scraping success
             console.log('\n🎯 ENHANCED SCRAPING OPERATION COMPLETED');
             console.log(`   📄 File: ${savedDocument.fileName}`);
@@ -49,12 +55,13 @@ class MongoStorageService {
             console.log(`   🔗 ID: ${savedDocument.fileId}`);
             console.log(`   ⏱️  Saved: ${savedDocument.savedAt.toLocaleTimeString()}`);
             console.log('   ' + '─'.repeat(50));
-            
+
             // Return in the same format as the old FileStorageService
             return {
                 success: true,
                 fileId: savedDocument.fileId,
                 fileName: savedDocument.fileName,
+                websiteApiKey: savedDocument.websiteApiKey, // Return API key for frontend
                 filePath: `mongodb://${savedDocument._id}`, // Virtual path for compatibility
                 fileData: {
                     id: savedDocument.fileId,
@@ -75,12 +82,12 @@ class MongoStorageService {
 
         } catch (error) {
             console.error('Error saving scraped data to MongoDB:', error);
-            
+
             // Handle duplicate key errors
             if (error.code === 11000) {
                 throw new Error('Duplicate data - this content may have already been saved');
             }
-            
+
             throw error;
         }
     }
@@ -89,15 +96,15 @@ class MongoStorageService {
     async getFilesList(userId = null, limit = 50) {
         try {
             await this.ensureConnection();
-            
+
             // Build query filter
             const filter = userId ? { userId } : {};
-            
+
             const documents = await ScrapedData
                 .find(filter)
                 .sort({ savedAt: -1 }) // Most recent first
                 .limit(limit)
-                .select('fileId fileName title url savedAt metadata scrapingMethod totalUrlsScraped additionalUrls displayName formattedFileSize theme')
+                .select('fileId fileName title url savedAt metadata scrapingMethod totalUrlsScraped additionalUrls displayName formattedFileSize theme websiteApiKey')
                 .lean();
 
             // Transform to match old FileStorageService format with enhanced data
@@ -112,7 +119,8 @@ class MongoStorageService {
                 additionalUrls: doc.additionalUrls || [],
                 savedAt: doc.savedAt.toISOString(),
                 fileSize: this.formatFileSize(doc.metadata?.fileSize || 0),
-                theme: doc.theme || null
+                theme: doc.theme || null,
+                websiteApiKey: doc.websiteApiKey // Include API key for frontend
             }));
 
         } catch (error) {
@@ -125,15 +133,15 @@ class MongoStorageService {
     async getFileContent(fileId, userId = null) {
         try {
             await this.ensureConnection();
-            
+
             // Build query filter
             const filter = { fileId };
             if (userId) {
                 filter.userId = userId;
             }
-            
+
             const document = await ScrapedData.findOne(filter);
-            
+
             if (!document) {
                 throw new Error('File not found or access denied');
             }
@@ -183,15 +191,15 @@ class MongoStorageService {
     async deleteFile(fileId, userId = null) {
         try {
             await this.ensureConnection();
-            
+
             // Build query filter to ensure user can only delete their own files
             const filter = { fileId };
             if (userId) {
                 filter.userId = userId;
             }
-            
+
             const result = await ScrapedData.deleteOne(filter);
-            
+
             if (result.deletedCount === 0) {
                 throw new Error('File not found or access denied');
             }
@@ -209,32 +217,32 @@ class MongoStorageService {
     async renameFile(fileId, newCustomName, userId = null) {
         try {
             await this.ensureConnection();
-            
+
             // Build query filter to ensure user can only rename their own files
             const filter = { fileId };
             if (userId) {
                 filter.userId = userId;
             }
-            
+
             const document = await ScrapedData.findOne(filter);
-            
+
             if (!document) {
                 throw new Error('File not found or access denied');
             }
 
             // Generate new filename
             const newFileName = ScrapedData.generateFileName(newCustomName, document.url);
-            
+
             // Update the document
             document.fileName = newFileName;
             if (newCustomName) {
                 document.title = newCustomName.trim();
             }
-            
+
             await document.save();
 
             console.log(`📝 Renamed file ${fileId} to: ${newFileName} (User: ${userId || 'system'})`);
-            
+
             return {
                 success: true,
                 newFileName: newFileName,
@@ -251,13 +259,13 @@ class MongoStorageService {
     async getStorageStats(userId = null) {
         try {
             await this.ensureConnection();
-            
+
             // Build aggregation pipeline with optional user filter
             const pipeline = [];
             if (userId) {
                 pipeline.push({ $match: { userId } });
             }
-            
+
             pipeline.push({
                 $group: {
                     _id: null,
@@ -268,12 +276,12 @@ class MongoStorageService {
                     newestFile: { $max: '$savedAt' }
                 }
             });
-            
+
             // Get aggregated statistics
             const stats = await ScrapedData.aggregate(pipeline);
 
             const dbStats = await database.getStats();
-            
+
             const result = stats[0] || {
                 totalFiles: 0,
                 totalSize: 0,
@@ -308,7 +316,7 @@ class MongoStorageService {
     async searchFiles(query, userId = null, limit = 20) {
         try {
             await this.ensureConnection();
-            
+
             // Build base search filter
             const searchFilter = {
                 $or: [
@@ -323,7 +331,7 @@ class MongoStorageService {
             if (userId) {
                 searchFilter.userId = userId;
             }
-            
+
             const searchResults = await ScrapedData
                 .find(searchFilter)
                 .sort({ savedAt: -1 })
@@ -351,13 +359,13 @@ class MongoStorageService {
     async getFilesByUrl(url, userId = null, limit = 10) {
         try {
             await this.ensureConnection();
-            
+
             // Build query filter
             const filter = { url };
             if (userId) {
                 filter.userId = userId;
             }
-            
+
             const documents = await ScrapedData
                 .find(filter)
                 .sort({ savedAt: -1 })
@@ -394,21 +402,21 @@ class MongoStorageService {
     async cleanupOldFiles(daysOld = 30, userId = null) {
         try {
             await this.ensureConnection();
-            
+
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - daysOld);
-            
+
             // Build filter with optional user restriction
             const filter = { savedAt: { $lt: cutoffDate } };
             if (userId) {
                 filter.userId = userId;
             }
-            
+
             const result = await ScrapedData.deleteMany(filter);
-            
+
             const userContext = userId ? ` for user ${userId}` : ' (system-wide)';
             console.log(`🧹 Cleaned up ${result.deletedCount} files older than ${daysOld} days${userContext}`);
-            
+
             return {
                 success: true,
                 deletedCount: result.deletedCount,
@@ -425,15 +433,15 @@ class MongoStorageService {
     async getScrapedDataById(id, userId = null) {
         try {
             await this.ensureConnection();
-            
+
             // Build query filter
             const filter = { fileId: id };
             if (userId) {
                 filter.userId = userId;
             }
-            
+
             const document = await ScrapedData.findOne(filter);
-            
+
             if (!document) {
                 return null;
             }

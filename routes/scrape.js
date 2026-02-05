@@ -54,6 +54,9 @@ router.delete('/files/:id', authenticateToken, scrapeController.deleteHistory);
 // GET /api/scrape/stats - Get storage statistics
 router.get('/stats', authenticateToken, scrapeController.getStorageStats);
 
+// POST /api/scrape/files/:id/regenerate-key - Regenerate API key for a website
+router.post('/files/:id/regenerate-key', authenticateToken, scrapeController.regenerateWebsiteApiKey);
+
 // Legacy routes for backward compatibility
 router.get('/history', authenticateToken, scrapeController.getHistory);
 router.delete('/history/:id', authenticateToken, scrapeController.deleteHistory);

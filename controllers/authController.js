@@ -152,6 +152,7 @@ const login = async (req, res) => {
         res.json({
             success: true,
             message: 'Login successful',
+            token: token, // Return token for localStorage
             user: {
                 id: user._id,
                 email: user.email,

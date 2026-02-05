@@ -230,14 +230,27 @@ class ScrapeController {
                 });
             }
 
-            // Validate fileId with helpful error message
-            if (!fileId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'No website selected. Please configure your integration settings in the dashboard and select a website to chat with.',
-                    errorCode: 'NO_WEBSITE_SELECTED',
-                    helpUrl: 'https://chatflow-ai.com/docs/integration-setup'
-                });
+            // Determine fileId based on authentication method
+            let actualFileId;
+
+            if (req.isWebsiteKey) {
+                // NEW SYSTEM: Website-specific API key
+                // fileId is already set by apiKeyAuth middleware
+                actualFileId = req.currentFileId;
+                console.log(`🎯 Using website from API key: ${req.website.title}`);
+            } else {
+                // OLD SYSTEM: User API key (backward compatibility)
+                // fileId must be provided in request body
+                if (!fileId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'No website selected. Please configure your integration settings in the dashboard and select a website to chat with.',
+                        errorCode: 'NO_WEBSITE_SELECTED',
+                        helpUrl: 'https://chatflow-ai.com/docs/integration-setup'
+                    });
+                }
+                actualFileId = fileId;
+                console.log(`⚠️  Using fileId from request (legacy): ${fileId}`);
             }
 
             // Extract user ID from either authentication method
@@ -250,7 +263,7 @@ class ScrapeController {
             }
 
             // Get the file content (filter by user)
-            const fileContent = await mongoStorageService.getFileContent(fileId, userId);
+            const fileContent = await mongoStorageService.getFileContent(actualFileId, userId);
 
             if (!fileContent) {
                 return res.status(404).json({
@@ -337,6 +350,55 @@ class ScrapeController {
 
         } catch (error) {
             console.error('Error in getThemeData:', error);
+            next(error);
+        }
+    }
+
+    async regenerateWebsiteApiKey(req, res, next) {
+        try {
+            const { id } = req.params; // website fileId
+            const userId = this.getUserId(req);
+
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'User authentication required'
+                });
+            }
+
+            // Find the website by fileId and user
+            const ScrapedData = require('../models/ScrapedData');
+            const website = await ScrapedData.findOne({ fileId: id, userId });
+
+            if (!website) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Website not found or access denied'
+                });
+            }
+
+            // Store old key for logging
+            const oldKey = website.websiteApiKey;
+
+            // Generate new API key
+            website.websiteApiKey = ScrapedData.generateWebsiteApiKey();
+            await website.save();
+
+            console.log(`🔄 API key regenerated for: ${website.title}`);
+            console.log(`   Old key: ${oldKey?.substring(0, 20)}...`);
+            console.log(`   New key: ${website.websiteApiKey.substring(0, 20)}...`);
+
+            res.json({
+                success: true,
+                data: {
+                    websiteApiKey: website.websiteApiKey,
+                    websiteTitle: website.title
+                },
+                message: 'API key regenerated successfully. Update your website integration with the new key.'
+            });
+
+        } catch (error) {
+            console.error('Error regenerating API key:', error);
             next(error);
         }
     }
@@ -476,7 +538,8 @@ const boundController = {
     chatWithWebsite: scrapeControllerInstance.chatWithWebsite.bind(scrapeControllerInstance),
     getThemeData: scrapeControllerInstance.getThemeData.bind(scrapeControllerInstance),
     getSdkConfig: scrapeControllerInstance.getSdkConfig.bind(scrapeControllerInstance),
-    saveIntegrationSettings: scrapeControllerInstance.saveIntegrationSettings.bind(scrapeControllerInstance)
+    saveIntegrationSettings: scrapeControllerInstance.saveIntegrationSettings.bind(scrapeControllerInstance),
+    regenerateWebsiteApiKey: scrapeControllerInstance.regenerateWebsiteApiKey.bind(scrapeControllerInstance)
 };
 
 module.exports = boundController;

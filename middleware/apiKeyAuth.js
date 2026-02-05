@@ -11,23 +11,41 @@ const apiKeyAuth = async (req, res, next) => {
             });
         }
 
-        // Validate API key against database
+        // NEW SYSTEM: Try website-specific API key first
+        const ScrapedData = require('../models/ScrapedData');
+        const website = await ScrapedData.findOne({ websiteApiKey: apiKey })
+            .populate('userId', '_id name email');
+
+        if (website) {
+            // Website-specific key found - NEW SYSTEM
+            req.website = website;
+            req.apiUser = website.userId;
+            req.currentFileId = website._id.toString();
+            req.isWebsiteKey = true;
+            console.log(`✅ Website-specific API key authenticated: ${website.title}`);
+            return next();
+        }
+
+        // OLD SYSTEM: Fallback to user API key for backward compatibility
         const User = require('../models/User');
         const user = await User.findOne({ apiKey }).select('_id name email apiKey');
 
-        if (!user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid API key. Please check your API key or generate a new one.'
-            });
+        if (user) {
+            // User API key found - OLD SYSTEM (backward compatibility)
+            req.apiKey = apiKey;
+            req.apiUser = user;
+            req.isDemo = false;
+            req.isWebsiteKey = false;
+            console.log(`⚠️  User API key authenticated (legacy): ${user.email}`);
+            return next();
         }
 
-        // Store API key and user info in request for later use
-        req.apiKey = apiKey;
-        req.apiUser = user;
-        req.isDemo = false; // All keys are now user-generated
+        // No valid key found
+        return res.status(401).json({
+            success: false,
+            message: 'Invalid API key. Please check your API key or generate a new one.'
+        });
 
-        next();
     } catch (error) {
         console.error('API key authentication error:', error);
         return res.status(500).json({
