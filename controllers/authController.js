@@ -5,7 +5,7 @@ const User = require('../models/User');
 // Generate JWT token
 const generateToken = (userId) => {
     // Use hardcoded default to avoid environment variable issues
-    const DEFAULT_EXPIRY = '7d';
+    const DEFAULT_EXPIRY = '7d';55393353
 
     // Get and validate the environment variable
     let expiresIn = process.env.JWT_EXPIRES_IN;
