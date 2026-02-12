@@ -56,7 +56,7 @@ const generalLimiter = rateLimit({
 router.get('/check', generalLimiter, authController.checkAuth);
 
 // Register new user
-router.post('/register', 
+router.post('/register',
     authLimiter,
     checkNotAuthenticated,
     validateRegister,
@@ -97,7 +97,7 @@ router.put('/profile',
         try {
             const { validationResult } = require('express-validator');
             const errors = validationResult(req);
-            
+
             if (!errors.isEmpty()) {
                 return res.status(400).json({
                     success: false,
@@ -163,7 +163,7 @@ router.put('/password',
         try {
             const { validationResult } = require('express-validator');
             const errors = validationResult(req);
-            
+
             if (!errors.isEmpty()) {
                 return res.status(400).json({
                     success: false,
@@ -178,7 +178,7 @@ router.put('/password',
 
             // Get user with password
             const user = await User.findById(userId);
-            
+
             // Verify current password
             const isCurrentPasswordValid = await user.comparePassword(currentPassword);
             if (!isCurrentPasswordValid) {
@@ -302,28 +302,53 @@ router.delete('/api-key',
 router.post('/validate-api-key', generalLimiter, async (req, res) => {
     try {
         const apiKey = req.headers['x-api-key'];
-        
+
         if (!apiKey) {
             return res.status(400).json({
                 success: false,
                 message: 'API key is required'
             });
         }
-        
-        // Find user with this API key
-        const user = await User.findOne({ apiKey }).select('_id isActive');
-        
-        if (!user || !user.isActive) {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid or inactive API key'
+
+        // Check if it's a website-specific API key (wk_) or user API key (ck_)
+        const ScrapedData = require('../models/ScrapedData');
+
+        if (apiKey.startsWith('wk_')) {
+            // Website-specific API key
+            const website = await ScrapedData.findOne({ websiteApiKey: apiKey })
+                .populate('userId', '_id isActive');
+
+            if (!website || !website.userId || !website.userId.isActive) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Invalid or inactive API key'
+                });
+            }
+
+            return res.json({
+                success: true,
+                message: 'API key is valid',
+                keyType: 'website',
+                websiteId: website._id,
+                websiteTitle: website.title
+            });
+        } else {
+            // User API key (legacy)
+            const user = await User.findOne({ apiKey }).select('_id isActive');
+
+            if (!user || !user.isActive) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Invalid or inactive API key'
+                });
+            }
+
+            return res.json({
+                success: true,
+                message: 'API key is valid',
+                keyType: 'user'
             });
         }
-        
-        res.json({
-            success: true,
-            message: 'API key is valid'
-        });
     } catch (error) {
         console.error('Error validating API key:', error);
         res.status(500).json({
