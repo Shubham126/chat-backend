@@ -220,10 +220,17 @@ class ScrapeController {
 
     async chatWithWebsite(req, res, next) {
         try {
+            console.log('\n' + '='.repeat(70));
+            console.log('💬 CHAT WITH WEBSITE REQUEST');
+            console.log('='.repeat(70));
+
             const { fileId, message } = req.body;
+            console.log('📥 Request body:', { fileId: fileId || 'not provided', message: message?.substring(0, 50) + '...' });
+            console.log('🔑 Auth method:', req.isWebsiteKey ? 'Website-specific API key' : 'User API key');
 
             // Validate message
             if (!message || !message.trim()) {
+                console.log('❌ Validation failed: Message is required');
                 return res.status(400).json({
                     success: false,
                     message: 'Message is required'
@@ -238,10 +245,12 @@ class ScrapeController {
                 // fileId is already set by apiKeyAuth middleware
                 actualFileId = req.currentFileId;
                 console.log(`🎯 Using website from API key: ${req.website.title}`);
+                console.log(`📄 File ID: ${actualFileId}`);
             } else {
                 // OLD SYSTEM: User API key (backward compatibility)
                 // fileId must be provided in request body
                 if (!fileId) {
+                    console.log('❌ No fileId provided for user API key');
                     return res.status(400).json({
                         success: false,
                         message: 'No website selected. Please configure your integration settings in the dashboard and select a website to chat with.',
@@ -255,7 +264,10 @@ class ScrapeController {
 
             // Extract user ID from either authentication method
             const userId = this.getUserId(req);
+            console.log(`👤 User ID: ${userId}`);
+
             if (!userId) {
+                console.log('❌ No user ID found in request');
                 return res.status(401).json({
                     success: false,
                     message: 'User authentication required'
@@ -263,9 +275,11 @@ class ScrapeController {
             }
 
             // Get the file content (filter by user)
+            console.log(`📂 Fetching file content for ID: ${actualFileId}, User: ${userId}`);
             const fileContent = await mongoStorageService.getFileContent(actualFileId, userId);
 
             if (!fileContent) {
+                console.log('❌ File not found or access denied');
                 return res.status(404).json({
                     success: false,
                     message: 'Website not found or access denied. The selected website may have been deleted or you may not have permission to access it.',
@@ -273,11 +287,21 @@ class ScrapeController {
                 });
             }
 
+            console.log(`✅ File content retrieved: ${fileContent.scrapedData?.title || 'Untitled'}`);
+            console.log(`📊 Content stats: ${fileContent.scrapedData?.paragraphs?.length || 0} paragraphs, ${fileContent.scrapedData?.headings?.length || 0} headings`);
+
             // Build context from scraped data for Gemini AI
+            console.log('🔨 Building context for AI...');
             const context = contextBuilder.buildContext(fileContent.scrapedData, message);
+            console.log(`✅ Context built: ${context.substring(0, 100)}...`);
 
             // Get AI response using OpenRouter (same as dashboard)
+            console.log('🤖 Requesting AI response...');
             const aiResponse = await openaiService.getResponse(context, message);
+            console.log(`✅ AI response received: ${aiResponse.substring(0, 100)}...`);
+
+            console.log('✅ Chat request completed successfully');
+            console.log('='.repeat(70) + '\n');
 
             res.json({
                 success: true,
@@ -289,9 +313,14 @@ class ScrapeController {
             });
 
         } catch (error) {
+            console.log('\n' + '❌'.repeat(35));
+            console.error('💥 CHAT ERROR:', error.message);
+            console.error('📍 Error stack:', error.stack);
+            console.log('❌'.repeat(35) + '\n');
             next(error);
         }
     }
+
 
     async getThemeData(req, res, next) {
         try {

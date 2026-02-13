@@ -20,9 +20,10 @@ const apiKeyAuth = async (req, res, next) => {
             // Website-specific key found - NEW SYSTEM
             req.website = website;
             req.apiUser = website.userId;
-            req.currentFileId = website._id.toString();
+            req.currentFileId = website.fileId; // Use fileId field, not _id
             req.isWebsiteKey = true;
             console.log(`✅ Website-specific API key authenticated: ${website.title}`);
+            console.log(`📄 File ID: ${website.fileId}`);
             return next();
         }
 
