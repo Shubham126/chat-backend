@@ -164,19 +164,17 @@ var ChatFlowSDK = (function (exports) {
       i = 0;
     }
     _regeneratorDefine = function (e, r, n, t) {
-      if (r) i ? i(e, r, {
+      function o(r, n) {
+        _regeneratorDefine(e, r, function (e) {
+          return this._invoke(r, n, e);
+        });
+      }
+      r ? i ? i(e, r, {
         value: n,
         enumerable: !t,
         configurable: !t,
         writable: !t
-      }) : e[r] = n;else {
-        function o(r, n) {
-          _regeneratorDefine(e, r, function (e) {
-            return this._invoke(r, n, e);
-          });
-        }
-        o("next", 0), o("throw", 1), o("return", 2);
-      }
+      }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2));
     }, _regeneratorDefine(e, r, n, t);
   }
   function _toPrimitive(t, r) {
@@ -196,12 +194,13 @@ var ChatFlowSDK = (function (exports) {
 
   var ChatBot = /*#__PURE__*/function () {
     function ChatBot(apiKey) {
+      var _this = this;
       var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
       _classCallCheck(this, ChatBot);
       this.apiKey = apiKey;
       // Auto-detect environment for baseUrl
       var isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('127.0.0.1');
-      var defaultBaseUrl = isLocalhost ? 'http://localhost:3000/api/scrape' : 'https://chatflow-ai.onrender.com/api/scrape';
+      var defaultBaseUrl = isLocalhost ? 'http://localhost:3000/api/scrape' : 'https://chat-backend-12wo.onrender.com/api/scrape';
       this.baseUrl = options.baseUrl || defaultBaseUrl;
       this.isOpen = false;
       this.currentFileId = null;
@@ -210,68 +209,81 @@ var ChatFlowSDK = (function (exports) {
       this.selectedSiteName = null;
       this.websiteTheme = null;
 
-      // Configuration options
+      // Configuration options - will be loaded from API
       this.options = _objectSpread2({
-        position: options.position || 'bottom-right',
-        theme: options.theme || 'default',
-        themeStyle: options.themeStyle || 'default',
-        // 'default' or 'website'
-        title: options.title || 'ChatFlow AI Assistant',
-        placeholder: options.placeholder || 'Ask me anything about this website...',
-        preselectedSite: options.preselectedSite || null
+        position: 'bottom-right',
+        // Default, will be overridden by API
+        theme: 'default',
+        themeStyle: 'auto',
+        // Will be determined by API
+        title: 'ChatFlow AI Assistant',
+        placeholder: 'Ask me anything about this website...',
+        preselectedSite: null
       }, options);
       this.init();
+
+      // Set up periodic refresh to check for configuration changes
+      this.setupConfigRefresh();
+
+      // Add global method for manual refresh
+      window.ChatFlowRefresh = function () {
+        console.log('🔄 Manual refresh triggered');
+        _this.refreshConfiguration();
+      };
     }
     return _createClass(ChatBot, [{
-      key: "init",
-      value: function () {
-        var _init = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-          var isValidKey;
+      key: "setupConfigRefresh",
+      value: function setupConfigRefresh() {
+        var _this2 = this;
+        // Check for configuration updates every 2 seconds for faster response
+        this.configRefreshInterval = setInterval(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+          var _t;
           return _regenerator().w(function (_context) {
-            while (1) switch (_context.n) {
+            while (1) switch (_context.p = _context.n) {
               case 0:
-                this.createStyles();
-                this.createChatWidget();
-                this.bindEvents();
-
-                // Validate API key and load SDK configuration
+                _context.p = 0;
                 _context.n = 1;
-                return this.validateApiKey();
+                return _this2.refreshConfiguration();
               case 1:
-                isValidKey = _context.v;
-                if (!isValidKey) {
-                  _context.n = 3;
-                  break;
-                }
-                _context.n = 2;
-                return this.loadSdkConfiguration();
-              case 2:
-                _context.n = 4;
+                _context.n = 3;
                 break;
+              case 2:
+                _context.p = 2;
+                _t = _context.v;
+                console.warn('Config refresh failed:', _t);
               case 3:
-                this.showApiKeyError();
-              case 4:
                 return _context.a(2);
             }
-          }, _callee, this);
-        }));
-        function init() {
-          return _init.apply(this, arguments);
-        }
-        return init;
-      }()
+          }, _callee, null, [[0, 2]]);
+        })), 2000);
+
+        // Also refresh when page becomes visible (user switches back to tab)
+        document.addEventListener('visibilitychange', function () {
+          if (!document.hidden) {
+            console.log('🔄 Page visible, checking for config updates...');
+            _this2.refreshConfiguration();
+          }
+        });
+
+        // Refresh when window gains focus
+        window.addEventListener('focus', function () {
+          console.log('🔄 Window focused, checking for config updates...');
+          _this2.refreshConfiguration();
+        });
+      }
     }, {
-      key: "validateApiKey",
+      key: "refreshConfiguration",
       value: function () {
-        var _validateApiKey = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
-          var response, data, _t;
+        var _refreshConfiguration = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+          var timestamp, response, data, newConfig, configChanged, _t2;
           return _regenerator().w(function (_context2) {
             while (1) switch (_context2.p = _context2.n) {
               case 0:
                 _context2.p = 0;
+                timestamp = new Date().getTime();
                 _context2.n = 1;
-                return fetch("".concat(this.baseUrl.replace('/scrape', ''), "/auth/validate-api-key"), {
-                  method: 'POST',
+                return fetch("".concat(this.baseUrl, "/sdk-config?t=").concat(timestamp), {
+                  method: 'GET',
                   headers: {
                     'Content-Type': 'application/json',
                     'x-api-key': this.apiKey
@@ -283,14 +295,227 @@ var ChatFlowSDK = (function (exports) {
                 return response.json();
               case 2:
                 data = _context2.v;
-                return _context2.a(2, data.success);
+                if (!(data.success && data.data)) {
+                  _context2.n = 4;
+                  break;
+                }
+                newConfig = data.data; // Check if configuration has changed
+                configChanged = this.hasConfigurationChanged(newConfig);
+                if (!configChanged) {
+                  _context2.n = 4;
+                  break;
+                }
+                console.log('⚡ Configuration changed, updating chatbot immediately...');
+                _context2.n = 3;
+                return this.applyNewConfiguration(newConfig);
               case 3:
-                _context2.p = 3;
-                _t = _context2.v;
-                console.error('Error validating API key:', _t);
-                return _context2.a(2, false);
+                // Show brief notification to user
+                this.showUpdateNotification();
+              case 4:
+                _context2.n = 6;
+                break;
+              case 5:
+                _context2.p = 5;
+                _t2 = _context2.v;
+                // Silently fail refresh attempts to avoid spam
+                console.debug('Config refresh error:', _t2);
+              case 6:
+                return _context2.a(2);
             }
-          }, _callee2, this, [[0, 3]]);
+          }, _callee2, this, [[0, 5]]);
+        }));
+        function refreshConfiguration() {
+          return _refreshConfiguration.apply(this, arguments);
+        }
+        return refreshConfiguration;
+      }()
+    }, {
+      key: "hasConfigurationChanged",
+      value: function hasConfigurationChanged(newConfig) {
+        var _this$sdkConfig$selec, _newConfig$selectedWe, _this$sdkConfig$integ, _newConfig$integratio;
+        if (!this.sdkConfig) return true;
+
+        // Check if selected website changed
+        var oldWebsiteId = (_this$sdkConfig$selec = this.sdkConfig.selectedWebsite) === null || _this$sdkConfig$selec === void 0 ? void 0 : _this$sdkConfig$selec.id;
+        var newWebsiteId = (_newConfig$selectedWe = newConfig.selectedWebsite) === null || _newConfig$selectedWe === void 0 ? void 0 : _newConfig$selectedWe.id;
+        if (oldWebsiteId !== newWebsiteId) {
+          console.log('📝 Selected website changed:', oldWebsiteId, '->', newWebsiteId);
+          return true;
+        }
+
+        // Check if theme choice changed
+        var oldThemeChoice = (_this$sdkConfig$integ = this.sdkConfig.integration) === null || _this$sdkConfig$integ === void 0 ? void 0 : _this$sdkConfig$integ.themeChoice;
+        var newThemeChoice = (_newConfig$integratio = newConfig.integration) === null || _newConfig$integratio === void 0 ? void 0 : _newConfig$integratio.themeChoice;
+        if (oldThemeChoice !== newThemeChoice) {
+          console.log('🎨 Theme choice changed:', oldThemeChoice, '->', newThemeChoice);
+          return true;
+        }
+
+        // Check if theme data changed (for website themes)
+        if (newThemeChoice === 'website') {
+          var oldThemeData = JSON.stringify(this.sdkConfig.themeData || {});
+          var newThemeData = JSON.stringify(newConfig.themeData || {});
+          if (oldThemeData !== newThemeData) {
+            console.log('🎨 Theme data changed');
+            return true;
+          }
+        }
+        return false;
+      }
+    }, {
+      key: "applyNewConfiguration",
+      value: function () {
+        var _applyNewConfiguration = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(newConfig) {
+          var customizations, titleElement, inputElement, firstSite;
+          return _regenerator().w(function (_context3) {
+            while (1) switch (_context3.n) {
+              case 0:
+                // Store new configuration
+                this.sdkConfig = newConfig;
+
+                // Update all settings from new configuration
+                if (newConfig.integration.customizations) {
+                  customizations = newConfig.integration.customizations; // Update position if changed
+                  if (customizations.position && customizations.position !== this.options.position) {
+                    this.options.position = customizations.position;
+                    // Update widget position class
+                    this.widget.className = "chatbot-widget ".concat(this.options.position);
+                    console.log('📍 Position updated to:', this.options.position);
+                  }
+
+                  // Update title if changed
+                  if (customizations.title && customizations.title !== this.options.title) {
+                    this.options.title = customizations.title;
+                    titleElement = this.widget.querySelector('.chatbot-title');
+                    if (titleElement) {
+                      titleElement.textContent = customizations.title;
+                    }
+                    console.log('📝 Title updated to:', this.options.title);
+                  }
+
+                  // Update placeholder if changed
+                  if (customizations.placeholder && customizations.placeholder !== this.options.placeholder) {
+                    this.options.placeholder = customizations.placeholder;
+                    inputElement = this.widget.querySelector('#chatbot-input');
+                    if (inputElement && !inputElement.disabled) {
+                      inputElement.placeholder = customizations.placeholder;
+                    }
+                    console.log('💬 Placeholder updated to:', this.options.placeholder);
+                  }
+                }
+
+                // Update theme settings
+                if (newConfig.integration.themeChoice === 'website' && newConfig.themeData) {
+                  this.options.themeStyle = 'website';
+                  this.websiteTheme = newConfig.themeData;
+                } else {
+                  this.options.themeStyle = 'default';
+                  this.websiteTheme = null;
+                }
+
+                // Update selected website
+                if (newConfig.selectedWebsite) {
+                  this.currentFileId = newConfig.selectedWebsite.id;
+                  this.enableInput();
+                  this.clearChat();
+                  this.updateChatHeader(newConfig.selectedWebsite.displayName || newConfig.selectedWebsite.fileName, newConfig.selectedWebsite.url);
+                } else if (newConfig.availableWebsites.length > 0) {
+                  firstSite = newConfig.availableWebsites[0];
+                  this.currentFileId = firstSite.id;
+                  this.enableInput();
+                  this.clearChat();
+                  this.updateChatHeader(firstSite.displayName || firstSite.fileName, firstSite.url);
+                } else {
+                  this.showNoSitesMessage();
+                }
+
+                // Re-apply styles with new theme
+                this.createStyles();
+                console.log('✅ Configuration updated successfully');
+              case 1:
+                return _context3.a(2);
+            }
+          }, _callee3, this);
+        }));
+        function applyNewConfiguration(_x) {
+          return _applyNewConfiguration.apply(this, arguments);
+        }
+        return applyNewConfiguration;
+      }()
+    }, {
+      key: "showUpdateNotification",
+      value: function showUpdateNotification() {
+        // Notification removed - silent updates
+      }
+    }, {
+      key: "init",
+      value: function () {
+        var _init = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+          var isValidKey;
+          return _regenerator().w(function (_context4) {
+            while (1) switch (_context4.n) {
+              case 0:
+                this.createStyles();
+                this.createChatWidget();
+                this.bindEvents();
+
+                // Validate API key and load SDK configuration
+                _context4.n = 1;
+                return this.validateApiKey();
+              case 1:
+                isValidKey = _context4.v;
+                if (!isValidKey) {
+                  _context4.n = 3;
+                  break;
+                }
+                _context4.n = 2;
+                return this.loadSdkConfiguration();
+              case 2:
+                _context4.n = 4;
+                break;
+              case 3:
+                this.showApiKeyError();
+              case 4:
+                return _context4.a(2);
+            }
+          }, _callee4, this);
+        }));
+        function init() {
+          return _init.apply(this, arguments);
+        }
+        return init;
+      }()
+    }, {
+      key: "validateApiKey",
+      value: function () {
+        var _validateApiKey = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+          var response, data, _t3;
+          return _regenerator().w(function (_context5) {
+            while (1) switch (_context5.p = _context5.n) {
+              case 0:
+                _context5.p = 0;
+                _context5.n = 1;
+                return fetch("".concat(this.baseUrl.replace('/scrape', ''), "/auth/validate-api-key"), {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': this.apiKey
+                  }
+                });
+              case 1:
+                response = _context5.v;
+                _context5.n = 2;
+                return response.json();
+              case 2:
+                data = _context5.v;
+                return _context5.a(2, data.success);
+              case 3:
+                _context5.p = 3;
+                _t3 = _context5.v;
+                console.error('Error validating API key:', _t3);
+                return _context5.a(2, false);
+            }
+          }, _callee5, this, [[0, 3]]);
         }));
         function validateApiKey() {
           return _validateApiKey.apply(this, arguments);
@@ -320,7 +545,7 @@ var ChatFlowSDK = (function (exports) {
         // Create CSS custom properties for theming
         var themeColors = this.getThemeColors();
         console.log('🎨 Creating styles with theme colors:', themeColors);
-        var styles = "\n            :root {\n                --chatbot-primary: ".concat(themeColors.primary, ";\n                --chatbot-primary-dark: ").concat(themeColors.primaryDark, ";\n                --chatbot-primary-light: ").concat(themeColors.primaryLight || themeColors.primary, ";\n                --chatbot-secondary: ").concat(themeColors.secondary, ";\n                --chatbot-background: ").concat(themeColors.background, ";\n                --chatbot-text: ").concat(themeColors.text, ";\n                --chatbot-border: ").concat(themeColors.border, ";\n                --chatbot-button: ").concat(themeColors.button || themeColors.primary, ";\n                --chatbot-link: ").concat(themeColors.link || themeColors.primary, ";\n                --chatbot-accent: ").concat(themeColors.accent || themeColors.primary, ";\n                --chatbot-user-bg: ").concat(themeColors.userBg, ";\n                --chatbot-bot-bg: ").concat(themeColors.botBg, ";\n                --chatbot-header-bg: ").concat(themeColors.headerBg || themeColors.primary, ";\n                --chatbot-header-text: ").concat(themeColors.headerText || '#ffffff', ";\n            }\n            \n            .chatbot-widget {\n                position: fixed;\n                z-index: 10000;\n                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\n            }\n            \n            .chatbot-widget.bottom-right {\n                bottom: 20px;\n                right: 20px;\n            }\n            \n            .chatbot-widget.bottom-left {\n                bottom: 20px;\n                left: 20px;\n            }\n            \n            .chatbot-widget.top-right {\n                top: 20px;\n                right: 20px;\n            }\n            \n            .chatbot-widget.top-left {\n                top: 20px;\n                left: 20px;\n            }\n            \n            .chatbot-toggle {\n                width: 60px;\n                height: 60px;\n                border-radius: 50%;\n                background: linear-gradient(135deg, var(--chatbot-primary) 0%, var(--chatbot-primary-dark) 100%);\n                border: none;\n                cursor: pointer;\n                box-shadow: 0 4px 20px rgba(0,0,0,0.15);\n                display: flex;\n                align-items: center;\n                justify-content: center;\n                transition: all 0.3s ease;\n            }\n            \n            .chatbot-toggle svg {\n                width: 24px;\n                height: 24px;\n                fill: white;\n            }\n            \n            /* Hide toggle when chatbot is open */\n            .chatbot-widget .chatbot-container.open ~ .chatbot-toggle {\n                opacity: 0;\n                visibility: hidden;\n                transform: scale(0.8);\n                pointer-events: none;\n            }\n            \n            .chatbot-container {\n                position: absolute;\n                bottom: 0;\n                right: 0;\n                width: 380px;\n                height: 605px;\n                background: var(--chatbot-background);\n                border-radius: 16px;\n                box-shadow: 0 10px 40px rgba(0,0,0,0.15);\n                display: flex;\n                flex-direction: column;\n                opacity: 0;\n                visibility: hidden;\n                transform: translateY(20px) scale(0.95);\n                transition: all 0.3s ease;\n                overflow: hidden;\n            }\n            \n            .chatbot-container.open {\n                opacity: 1;\n                visibility: visible;\n                transform: translateY(0) scale(1);\n            }\n            \n            .chatbot-header {\n                background: linear-gradient(135deg, var(--chatbot-header-bg) 0%, var(--chatbot-primary-dark) 100%);\n                color: var(--chatbot-header-text);\n                padding: 16px;\n                display: flex;\n                justify-content: center;\n                align-items: center;\n                border-radius: 12px 12px 0 0;\n                position: relative;\n            }\n            \n            .chatbot-title {\n                font-weight: 600;\n                font-size: 16px;\n                color: var(--chatbot-header-text);\n                text-align: center;\n                flex: 1;\n            }\n            \n            .chatbot-close {\n                background: none;\n                border: none;\n                color: var(--chatbot-header-text);\n                cursor: pointer;\n                padding: 8px;\n                border-radius: 6px;\n                opacity: 0.8;\n                transition: all 0.2s ease;\n                position: absolute;\n                right: 12px;\n                top: 50%;\n                transform: translateY(-50%);\n            }\n            \n            .chatbot-close:hover {\n                background: rgba(255,255,255,0.15);\n                opacity: 1;\n                transform: translateY(-50%) scale(1.1);\n            }\n            \n            .chatbot-messages {\n                flex: 1;\n                padding: 16px;\n                overflow-y: auto;\n                display: flex;\n                flex-direction: column;\n                gap: 12px;\n                background: var(--chatbot-background);\n            }\n            \n            .chatbot-message {\n                max-width: 80%;\n                padding: 12px 16px;\n                border-radius: 18px;\n                font-size: 14px;\n                line-height: 1.4;\n            }\n            \n            .chatbot-message.user {\n                background: var(--chatbot-user-bg);\n                color: white;\n                align-self: flex-end;\n                border-bottom-right-radius: 4px;\n            }\n            \n            .chatbot-message.bot {\n                background: var(--chatbot-bot-bg);\n                color: var(--chatbot-text);\n                align-self: flex-start;\n                border-bottom-left-radius: 4px;\n            }\n            \n            .bot-message-content {\n                line-height: 1.5;\n            }\n            \n            .bot-title {\n                font-size: 16px;\n                font-weight: 600;\n                color: var(--chatbot-text);\n                margin: 8px 0 12px 0;\n                padding-bottom: 6px;\n                border-bottom: 2px solid var(--chatbot-primary);\n            }\n            \n            .bot-header {\n                font-size: 14px;\n                font-weight: 600;\n                color: var(--chatbot-text);\n                margin: 12px 0 8px 0;\n            }\n            \n            .bot-bullet {\n                margin: 4px 0;\n                padding-left: 8px;\n                color: var(--chatbot-text);\n            }\n            \n            .bot-numbered {\n                margin: 4px 0;\n                padding-left: 8px;\n                color: var(--chatbot-text);\n                font-weight: 500;\n            }\n            \n            .bot-message-content strong {\n                color: var(--chatbot-text);\n                font-weight: 600;\n            }\n            \n            .bot-message-content br {\n                line-height: 1.8;\n            }\n            \n            .chatbot-input-container {\n                padding: 16px;\n                border-top: 1px solid var(--chatbot-border);\n                display: flex;\n                gap: 8px;\n                background: var(--chatbot-background);\n            }\n            \n            .chatbot-input {\n                flex: 1;\n                padding: 12px 16px;\n                border: 1px solid var(--chatbot-border);\n                border-radius: 12px;\n                outline: none;\n                font-size: 14px;\n                background: var(--chatbot-background);\n                color: var(--chatbot-text);\n                resize: none;\n                max-height: 120px;\n                line-height: 1.4;\n                font-family: inherit;\n            }\n            \n            .chatbot-input:focus {\n                border-color: var(--chatbot-primary);\n            }\n            \n            .chatbot-send {\n                width: 40px;\n                height: 40px;\n                border-radius: 50%;\n                background: var(--chatbot-primary);\n                border: none;\n                cursor: pointer;\n                display: flex;\n                align-items: center;\n                justify-content: center;\n                transition: background 0.2s;\n            }\n            \n            .chatbot-send:hover {\n                background: var(--chatbot-primary-dark);\n            }\n            \n            .chatbot-send:disabled {\n                background: #adb5bd;\n                cursor: not-allowed;\n            }\n            \n            .chatbot-send svg {\n                width: 16px;\n                height: 16px;\n                fill: white;\n            }\n            \n            .chatbot-loading {\n                display: flex;\n                align-items: center;\n                gap: 8px;\n                color: #6c757d;\n                font-size: 14px;\n            }\n            \n            .chatbot-loading-dots {\n                display: flex;\n                gap: 4px;\n            }\n            \n            .chatbot-loading-dot {\n                width: 6px;\n                height: 6px;\n                border-radius: 50%;\n                background: #6c757d;\n                animation: chatbot-pulse 1.4s ease-in-out infinite both;\n            }\n            \n            .chatbot-loading-dot:nth-child(1) { animation-delay: -0.32s; }\n            .chatbot-loading-dot:nth-child(2) { animation-delay: -0.16s; }\n            \n            @keyframes chatbot-pulse {\n                0%, 80%, 100% {\n                    transform: scale(0);\n                }\n                40% {\n                    transform: scale(1);\n                }\n            }\n            \n            .chatbot-status {\n                padding: 8px 16px;\n                background: #e3f2fd;\n                color: #1976d2;\n                font-size: 12px;\n                text-align: center;\n            }\n            \n            .chatbot-website-info {\n                padding: 12px 16px;\n                background: var(--chatbot-background);\n                border-bottom: 1px solid var(--chatbot-border);\n                font-size: 12px;\n            }\n            \n            .website-link-container {\n                display: flex;\n                align-items: center;\n                gap: 8px;\n                flex-wrap: wrap;\n            }\n            \n            .website-label {\n                color: var(--chatbot-text);\n                opacity: 0.7;\n                font-weight: 500;\n            }\n            \n            .website-link {\n                color: var(--chatbot-primary);\n                text-decoration: none;\n                font-weight: 500;\n                max-width: 200px;\n                overflow: hidden;\n                text-overflow: ellipsis;\n                white-space: nowrap;\n            }\n            \n            .website-link:hover {\n                text-decoration: underline;\n            }\n            \n            .chatbot-site-subtitle {\n                font-size: 12px;\n                color: rgba(255, 255, 255, 0.8);\n                margin-top: 2px;\n                font-weight: 400;\n            }\n        ");
+        var styles = "\n            :root {\n                --chatbot-primary: ".concat(themeColors.primary, ";\n                --chatbot-primary-dark: ").concat(themeColors.primaryDark, ";\n                --chatbot-primary-light: ").concat(themeColors.primaryLight || themeColors.primary, ";\n                --chatbot-secondary: ").concat(themeColors.secondary, ";\n                --chatbot-background: ").concat(themeColors.background, ";\n                --chatbot-text: ").concat(themeColors.text, ";\n                --chatbot-border: ").concat(themeColors.border, ";\n                --chatbot-button: ").concat(themeColors.button || themeColors.primary, ";\n                --chatbot-link: ").concat(themeColors.link || themeColors.primary, ";\n                --chatbot-accent: ").concat(themeColors.accent || themeColors.primary, ";\n                --chatbot-user-bg: ").concat(themeColors.userBg, ";\n                --chatbot-bot-bg: ").concat(themeColors.botBg, ";\n                --chatbot-header-bg: ").concat(themeColors.headerBg || themeColors.primary, ";\n                --chatbot-header-text: ").concat(themeColors.headerText || '#ffffff', ";\n            }\n            \n            .chatbot-widget {\n                position: fixed;\n                z-index: 10000;\n                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;\n            }\n            \n            .chatbot-widget.bottom-right {\n                bottom: 24px;\n                right: 24px;\n            }\n            \n            .chatbot-widget.bottom-left {\n                bottom: 24px;\n                left: 24px;\n            }\n            \n            .chatbot-widget.top-right {\n                top: 24px;\n                right: 24px;\n            }\n            \n            .chatbot-widget.top-left {\n                top: 24px;\n                left: 24px;\n            }\n            \n            .chatbot-toggle {\n                width: 60px;\n                height: 60px;\n                border-radius: 50%;\n                background: linear-gradient(135deg, var(--chatbot-primary) 0%, var(--chatbot-primary-dark) 100%);\n                border: none;\n                cursor: pointer;\n                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);\n                display: flex;\n                align-items: center;\n                justify-content: center;\n                transition: all 0.3s ease;\n            }\n            \n            .chatbot-toggle:hover {\n                transform: scale(1.1);\n                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);\n            }\n            \n            .chatbot-toggle svg {\n                width: 24px;\n                height: 24px;\n                fill: white;\n            }\n            \n            /* Hide toggle when chatbot is open */\n            .chatbot-widget .chatbot-container.open ~ .chatbot-toggle {\n                opacity: 0;\n                visibility: hidden;\n                transform: scale(0.8);\n                pointer-events: none;\n            }\n            \n            .chatbot-container {\n                position: absolute;\n                bottom: 0;\n                right: 0;\n                width: 380px;\n                height: 550px;\n                background: white;\n                border-radius: 16px;\n                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);\n                display: flex;\n                flex-direction: column;\n                opacity: 0;\n                visibility: hidden;\n                transform: translateY(20px);\n                transition: all 0.3s ease;\n                overflow: hidden;\n                animation: slideUp 0.3s ease;\n            }\n            \n            @keyframes slideUp {\n                from {\n                    opacity: 0;\n                    transform: translateY(20px);\n                }\n                to {\n                    opacity: 1;\n                    transform: translateY(0);\n                }\n            }\n            \n            .chatbot-container.open {\n                opacity: 1;\n                visibility: visible;\n                transform: translateY(0) scale(1);\n            }\n            \n            .chatbot-header {\n                background: linear-gradient(135deg, var(--chatbot-header-bg) 0%, var(--chatbot-primary-dark) 100%);\n                color: var(--chatbot-header-text);\n                padding: 20px;\n                display: flex;\n                justify-content: center;\n                align-items: center;\n                border-radius: 16px 16px 0 0;\n                position: relative;\n            }\n            \n            .chatbot-title {\n                font-weight: 600;\n                font-size: 16px;\n                color: var(--chatbot-header-text);\n                text-align: center;\n                flex: 1;\n            }\n            \n            .chatbot-close {\n                background: none;\n                border: none;\n                color: var(--chatbot-header-text);\n                cursor: pointer;\n                padding: 8px;\n                border-radius: 6px;\n                opacity: 0.9;\n                transition: all 0.2s ease;\n                position: absolute;\n                right: 12px;\n                top: 50%;\n                transform: translateY(-50%);\n            }\n            \n            .chatbot-close:hover {\n                background: rgba(255,255,255,0.2);\n                opacity: 1;\n                transform: translateY(-50%) scale(1.1);\n            }\n            \n            .chatbot-messages {\n                flex: 1;\n                padding: 20px;\n                overflow-y: auto;\n                display: flex;\n                flex-direction: column;\n                gap: 12px;\n                background: #f8f9fa;\n            }\n            \n            .chatbot-messages::-webkit-scrollbar {\n                width: 6px;\n            }\n            \n            .chatbot-messages::-webkit-scrollbar-track {\n                background: transparent;\n            }\n            \n            .chatbot-messages::-webkit-scrollbar-thumb {\n                background: #cbd5e0;\n                border-radius: 3px;\n            }\n            \n            .chatbot-messages::-webkit-scrollbar-thumb:hover {\n                background: #a0aec0;\n            }\n            \n            .chatbot-message {\n                max-width: 75%;\n                padding: 12px 16px;\n                border-radius: 12px;\n                font-size: 14px;\n                line-height: 1.5;\n                margin-bottom: 8px;\n                position: relative;\n            }\n            \n            .chatbot-message.user {\n                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n                color: white;\n                align-self: flex-end;\n                border-bottom-right-radius: 4px;\n            }\n            \n            .chatbot-message.bot {\n                background: white;\n                color: #2d3748;\n                align-self: flex-start;\n                border-bottom-left-radius: 4px;\n                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);\n            }\n            \n            .bot-message-content {\n                line-height: 1.5;\n            }\n            \n            .bot-title {\n                font-size: 16px;\n                font-weight: 600;\n                color: var(--chatbot-text);\n                margin: 8px 0 12px 0;\n                padding-bottom: 6px;\n                border-bottom: 2px solid var(--chatbot-primary);\n            }\n            \n            .bot-header {\n                font-size: 14px;\n                font-weight: 600;\n                color: var(--chatbot-text);\n                margin: 12px 0 8px 0;\n            }\n            \n            .bot-bullet {\n                margin: 4px 0;\n                padding-left: 8px;\n                color: var(--chatbot-text);\n            }\n            \n            .bot-numbered {\n                margin: 4px 0;\n                padding-left: 8px;\n                color: var(--chatbot-text);\n                font-weight: 500;\n            }\n            \n            .bot-message-content strong {\n                color: var(--chatbot-text);\n                font-weight: 600;\n            }\n            \n            .bot-message-content br {\n                line-height: 1.8;\n            }\n            \n            .chatbot-input-container {\n                padding: 16px;\n                border-top: 1px solid var(--chatbot-border);\n                display: flex;\n                gap: 8px;\n                background: white;\n            }\n            \n            .chatbot-input {\n                flex: 1;\n                padding: 12px 16px;\n                border: 1px solid #e2e8f0;\n                border-radius: 24px;\n                outline: none;\n                font-size: 14px;\n                background: white;\n                color: #2d3748;\n                resize: none;\n                height: 20px;\n                min-height: 20px;\n                max-height: 20px;\n                line-height: 1.2;\n                font-family: inherit;\n                overflow-y: auto;\n                overflow-x: hidden;\n                transition: all 0.3s ease;\n            }\n            \n            .chatbot-input:focus {\n                border-color: #667eea;\n                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);\n            }\n            \n            .chatbot-input:disabled {\n                background: #f7fafc;\n                cursor: not-allowed;\n            }\n            \n            .chatbot-send {\n                width: 44px;\n                height: 44px;\n                border-radius: 50%;\n                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n                border: none;\n                cursor: pointer;\n                display: flex;\n                align-items: center;\n                justify-content: center;\n                transition: all 0.3s ease;\n            }\n            \n            .chatbot-send:hover:not(:disabled) {\n                transform: scale(1.05);\n                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);\n            }\n            \n            .chatbot-send:disabled {\n                opacity: 0.5;\n                cursor: not-allowed;\n            }\n            \n            .chatbot-send svg {\n                width: 20px;\n                height: 20px;\n                fill: white;\n            }\n            \n            .chatbot-loading-inline {\n                display: flex;\n                align-items: center;\n                gap: 8px;\n                color: var(--chatbot-text);\n                font-size: 14px;\n                opacity: 0.8;\n            }\n            \n            .chatbot-loading-dots {\n                display: flex;\n                gap: 4px;\n            }\n            \n            .chatbot-loading-dot {\n                width: 8px;\n                height: 8px;\n                border-radius: 50%;\n                background: #cbd5e0;\n                animation: typing 1.4s infinite;\n            }\n            \n            .chatbot-loading-dot:nth-child(1) { animation-delay: 0s; }\n            .chatbot-loading-dot:nth-child(2) { animation-delay: 0.2s; }\n            .chatbot-loading-dot:nth-child(3) { animation-delay: 0.4s; }\n            \n            @keyframes typing {\n                0%, 60%, 100% {\n                    transform: translateY(0);\n                }\n                30% {\n                    transform: translateY(-10px);\n                }\n            }\n            \n            .chatbot-status {\n                padding: 8px 16px;\n                background: #e3f2fd;\n                color: #1976d2;\n                font-size: 12px;\n                text-align: center;\n            }\n            \n            .chatbot-website-info {\n                padding: 12px 16px;\n                background: white;\n                border-bottom: 1px solid var(--chatbot-border);\n                font-size: 12px;\n            }\n            \n            .website-link-container {\n                display: flex;\n                align-items: center;\n                gap: 8px;\n                flex-wrap: wrap;\n            }\n            \n            .website-label {\n                color: var(--chatbot-text);\n                opacity: 0.7;\n                font-weight: 500;\n            }\n            \n            .website-link {\n                color: var(--chatbot-primary);\n                text-decoration: none;\n                font-weight: 500;\n                max-width: 200px;\n                overflow: hidden;\n                text-overflow: ellipsis;\n                white-space: nowrap;\n            }\n            \n            .website-link:hover {\n                text-decoration: underline;\n            }\n            \n            .chatbot-site-subtitle {\n                font-size: 12px;\n                color: rgba(255, 255, 255, 0.9);\n                margin-top: 2px;\n                font-weight: 400;\n            }\n            \n            /* Responsive Design */\n            @media (max-width: 480px) {\n                .chatbot-container {\n                    width: calc(100vw - 32px);\n                    height: calc(100vh - 140px);\n                    right: 16px;\n                    bottom: 90px;\n                }\n                \n                .chatbot-toggle {\n                    right: 16px;\n                    bottom: 16px;\n                }\n            }\n        ");
 
         // Remove existing chatbot styles
         var existingStyles = document.getElementById('chatbot-styles');
@@ -345,37 +570,34 @@ var ChatFlowSDK = (function (exports) {
       value: function createChatWidget() {
         var widget = document.createElement('div');
         widget.className = "chatbot-widget ".concat(this.options.position);
-        widget.innerHTML = "\n            <button class=\"chatbot-toggle\" id=\"chatbot-toggle\">\n                <svg viewBox=\"0 0 24 24\">\n                    <path d=\"M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z\"/>\n                </svg>\n            </button>\n            \n            <div class=\"chatbot-container\" id=\"chatbot-container\">\n                <div class=\"chatbot-header\">\n                    <div class=\"chatbot-title\">ChatFlow AI Assistant</div>\n                    <button class=\"chatbot-close\" id=\"chatbot-close\">\n                        <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"currentColor\">\n                            <path d=\"M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z\"/>\n                        </svg>\n                    </button>\n                </div>\n                \n                <div class=\"chatbot-website-info\" id=\"chatbot-website-info\">\n                    <div class=\"website-link-container\">\n                        <span class=\"website-label\">Chatting with:</span>\n                        <a href=\"#\" class=\"website-link\" id=\"website-link\" target=\"_blank\">No website selected</a>\n                    </div>\n                </div>\n                \n                <div class=\"chatbot-messages\" id=\"chatbot-messages\">\n                    <div class=\"chatbot-message bot\">\n                        Hi! I'm your AI assistant. I'll help you with information from your scraped websites.\n                    </div>\n                </div>\n                \n                <div class=\"chatbot-input-container\">\n                    <textarea class=\"chatbot-input\" id=\"chatbot-input\" placeholder=\"Please select a website to start chatting...\" disabled rows=\"1\"></textarea>\n                    <button class=\"chatbot-send\" id=\"chatbot-send\" disabled>\n                        <svg viewBox=\"0 0 24 24\">\n                            <path d=\"M2.01 21L23 12 2.01 3 2 10l15 2-15 2z\"/>\n                        </svg>\n                    </button>\n                </div>\n            </div>\n        ";
+        widget.innerHTML = "\n            <button class=\"chatbot-toggle\" id=\"chatbot-toggle\">\n                <svg viewBox=\"0 0 24 24\">\n                    <path d=\"M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z\"/>\n                </svg>\n            </button>\n            \n            <div class=\"chatbot-container\" id=\"chatbot-container\">\n                <div class=\"chatbot-header\">\n                    <div class=\"chatbot-title\">".concat(this.options.title, "</div>\n                    <button class=\"chatbot-close\" id=\"chatbot-close\">\n                        <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"currentColor\">\n                            <path d=\"M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z\"/>\n                        </svg>\n                    </button>\n                </div>\n                \n                <div class=\"chatbot-website-info\" id=\"chatbot-website-info\">\n                    <div class=\"website-link-container\">\n                        <span class=\"website-label\">Chatting with:</span>\n                        <a href=\"#\" class=\"website-link\" id=\"website-link\" target=\"_blank\">No website selected</a>\n                    </div>\n                </div>\n                \n                <div class=\"chatbot-messages\" id=\"chatbot-messages\">\n                    <div class=\"chatbot-message bot\">\n                        Hi! I'm your AI assistant. I'll help you with information from your scraped websites.\n                    </div>\n                </div>\n                \n                <div class=\"chatbot-input-container\">\n                    <textarea class=\"chatbot-input\" id=\"chatbot-input\" placeholder=\"").concat(this.options.placeholder, "\" disabled rows=\"1\"></textarea>\n                    <button class=\"chatbot-send\" id=\"chatbot-send\" disabled>\n                        <svg viewBox=\"0 0 24 24\">\n                            <path d=\"M2.01 21L23 12 2.01 3 2 10l15 2-15 2z\"/>\n                        </svg>\n                    </button>\n                </div>\n            </div>\n        ");
         document.body.appendChild(widget);
         this.widget = widget;
       }
     }, {
       key: "bindEvents",
       value: function bindEvents() {
-        var _this = this;
+        var _this3 = this;
         var toggle = this.widget.querySelector('#chatbot-toggle');
         var close = this.widget.querySelector('#chatbot-close');
         var input = this.widget.querySelector('#chatbot-input');
         var send = this.widget.querySelector('#chatbot-send');
         toggle.addEventListener('click', function () {
-          return _this.toggleChat();
+          return _this3.toggleChat();
         });
         close.addEventListener('click', function () {
-          return _this.closeChat();
+          return _this3.closeChat();
         });
         send.addEventListener('click', function () {
-          return _this.sendMessage();
+          return _this3.sendMessage();
         });
 
-        // Auto-resize textarea
-        input.addEventListener('input', function () {
-          input.style.height = 'auto';
-          input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-        });
+        // Remove auto-resize - keep fixed height with scroll
+
         input.addEventListener('keypress', function (e) {
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            _this.sendMessage();
+            _this3.sendMessage();
           }
         });
       }
@@ -406,31 +628,29 @@ var ChatFlowSDK = (function (exports) {
     }, {
       key: "sendMessage",
       value: function () {
-        var _sendMessage = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-          var input, message, response, data, _t2;
-          return _regenerator().w(function (_context3) {
-            while (1) switch (_context3.p = _context3.n) {
+        var _sendMessage = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+          var input, message, response, data, _t4;
+          return _regenerator().w(function (_context6) {
+            while (1) switch (_context6.p = _context6.n) {
               case 0:
                 input = this.widget.querySelector('#chatbot-input');
                 message = input.value.trim();
                 if (!(!message || !this.currentFileId)) {
-                  _context3.n = 1;
+                  _context6.n = 1;
                   break;
                 }
-                return _context3.a(2);
+                return _context6.a(2);
               case 1:
                 // Add user message to chat
                 this.addMessage(message, 'user');
                 input.value = '';
 
-                // Reset textarea height
-                input.style.height = 'auto';
-                input.style.height = '40px';
+                // Keep fixed height - no resizing
 
                 // Show loading
                 this.showLoading();
-                _context3.p = 2;
-                _context3.n = 3;
+                _context6.p = 2;
+                _context6.n = 3;
                 return fetch("".concat(this.baseUrl, "/chat"), {
                   method: 'POST',
                   headers: {
@@ -443,29 +663,29 @@ var ChatFlowSDK = (function (exports) {
                   })
                 });
               case 3:
-                response = _context3.v;
-                _context3.n = 4;
+                response = _context6.v;
+                _context6.n = 4;
                 return response.json();
               case 4:
-                data = _context3.v;
+                data = _context6.v;
                 this.hideLoading();
                 if (data.success) {
                   this.addMessage(data.data.response, 'bot');
                 } else {
                   this.addMessage('Sorry, I encountered an error. Please try again.', 'bot');
                 }
-                _context3.n = 6;
+                _context6.n = 6;
                 break;
               case 5:
-                _context3.p = 5;
-                _t2 = _context3.v;
-                console.error('Error sending message:', _t2);
+                _context6.p = 5;
+                _t4 = _context6.v;
+                console.error('Error sending message:', _t4);
                 this.hideLoading();
                 this.addMessage('Sorry, I encountered an error. Please try again.', 'bot');
               case 6:
-                return _context3.a(2);
+                return _context6.a(2);
             }
-          }, _callee3, this, [[2, 5]]);
+          }, _callee6, this, [[2, 5]]);
         }));
         function sendMessage() {
           return _sendMessage.apply(this, arguments);
@@ -500,11 +720,11 @@ var ChatFlowSDK = (function (exports) {
         var formattedText = text
         // Remove excessive whitespace and line breaks
         .replace(/\n\s*\n\s*\n/g, '\n\n')
-        // Format headers
+        // Format headers (process before bold to avoid conflicts)
         .replace(/^## (.+)$/gm, '<div class="bot-header">$1</div>').replace(/^# (.+)$/gm, '<div class="bot-title">$1</div>')
-        // Format bold text
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        // Format bullet points
+        // Format bold text (process before bullet points to avoid ** being caught as bullets)
+        .replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>')
+        // Format bullet points (only match single * at start of line)
         .replace(/^\* (.+)$/gm, '<div class="bot-bullet">• $1</div>')
         // Format numbered lists
         .replace(/^(\d+)\. (.+)$/gm, '<div class="bot-numbered">$1. $2</div>')
@@ -519,9 +739,9 @@ var ChatFlowSDK = (function (exports) {
       value: function showLoading() {
         var messages = this.widget.querySelector('#chatbot-messages');
         var loading = document.createElement('div');
-        loading.className = 'chatbot-loading';
+        loading.className = 'chatbot-message bot';
         loading.id = 'chatbot-loading';
-        loading.innerHTML = "\n            <span>AI is thinking</span>\n            <div class=\"chatbot-loading-dots\">\n                <div class=\"chatbot-loading-dot\"></div>\n                <div class=\"chatbot-loading-dot\"></div>\n                <div class=\"chatbot-loading-dot\"></div>\n            </div>\n        ";
+        loading.innerHTML = "\n            <div class=\"bot-message-content\">\n                <div class=\"chatbot-loading-inline\">\n                    <span>AI is thinking</span>\n                    <div class=\"chatbot-loading-dots\">\n                        <div class=\"chatbot-loading-dot\"></div>\n                        <div class=\"chatbot-loading-dot\"></div>\n                        <div class=\"chatbot-loading-dot\"></div>\n                    </div>\n                </div>\n            </div>\n        ";
         messages.appendChild(loading);
         messages.scrollTop = messages.scrollHeight;
       }
@@ -536,14 +756,14 @@ var ChatFlowSDK = (function (exports) {
     }, {
       key: "loadScrapedSites",
       value: function () {
-        var _loadScrapedSites = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-          var _this2 = this;
-          var response, data, selectedSite, _t3;
-          return _regenerator().w(function (_context4) {
-            while (1) switch (_context4.p = _context4.n) {
+        var _loadScrapedSites = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+          var _this4 = this;
+          var response, data, selectedSite, _t5;
+          return _regenerator().w(function (_context7) {
+            while (1) switch (_context7.p = _context7.n) {
               case 0:
-                _context4.p = 0;
-                _context4.n = 1;
+                _context7.p = 0;
+                _context7.n = 1;
                 return fetch("".concat(this.baseUrl.replace('/scrape', ''), "/scrape/files"), {
                   method: 'GET',
                   headers: {
@@ -552,13 +772,13 @@ var ChatFlowSDK = (function (exports) {
                   }
                 });
               case 1:
-                response = _context4.v;
-                _context4.n = 2;
+                response = _context7.v;
+                _context7.n = 2;
                 return response.json();
               case 2:
-                data = _context4.v;
+                data = _context7.v;
                 if (!(data.success && data.data.length > 0)) {
-                  _context4.n = 4;
+                  _context7.n = 4;
                   break;
                 }
                 // Store all available sites
@@ -567,7 +787,7 @@ var ChatFlowSDK = (function (exports) {
                 if (this.options.preselectedSite) {
                   // Try to find the site by URL first
                   selectedSite = data.data.find(function (site) {
-                    return site.url === _this2.options.preselectedSite || site.id === _this2.options.preselectedSite || site.fileName.includes(_this2.options.preselectedSite);
+                    return site.url === _this4.options.preselectedSite || site.id === _this4.options.preselectedSite || site.fileName.includes(_this4.options.preselectedSite);
                   });
                   if (selectedSite) {
                     console.log('Found preselected site:', selectedSite.displayName || selectedSite.fileName);
@@ -583,26 +803,26 @@ var ChatFlowSDK = (function (exports) {
                 }
 
                 // Select the determined site
-                _context4.n = 3;
+                _context7.n = 3;
                 return this.selectSite(selectedSite.id, selectedSite.displayName || selectedSite.fileName, selectedSite.url);
               case 3:
-                _context4.n = 5;
+                _context7.n = 5;
                 break;
               case 4:
                 // No sites available - show error message
                 this.showNoSitesMessage();
               case 5:
-                _context4.n = 7;
+                _context7.n = 7;
                 break;
               case 6:
-                _context4.p = 6;
-                _t3 = _context4.v;
-                console.error('Error loading scraped sites:', _t3);
+                _context7.p = 6;
+                _t5 = _context7.v;
+                console.error('Error loading scraped sites:', _t5);
                 this.showNoSitesMessage();
               case 7:
-                return _context4.a(2);
+                return _context7.a(2);
             }
-          }, _callee4, this, [[0, 6]]);
+          }, _callee7, this, [[0, 6]]);
         }));
         function loadScrapedSites() {
           return _loadScrapedSites.apply(this, arguments);
@@ -612,13 +832,13 @@ var ChatFlowSDK = (function (exports) {
     }, {
       key: "showNoSitesMessage",
       value: function showNoSitesMessage() {
-        // Display error message in chat area
+        // Display simple error message in chat area
         var messagesContainer = this.widget.querySelector('#chatbot-messages');
-        messagesContainer.innerHTML = "\n            <div class=\"chatbot-message chatbot-message-bot\">\n                <div class=\"chatbot-message-content\">\n                    <p><strong>No websites available</strong></p>\n                    <p>No scraped websites found for this API key. Please scrape some websites first using the dashboard.</p>\n                </div>\n            </div>\n        ";
+        messagesContainer.innerHTML = "\n            <div class=\"chatbot-message bot\">\n                <div class=\"bot-message-content\">\n                    <div class=\"bot-title\">No websites available</div>\n                    <p>No scraped websites found for this API key. Please scrape some websites first using the dashboard.</p>\n                </div>\n            </div>\n        ";
 
         // Disable chat input
         var input = this.widget.querySelector('#chatbot-input');
-        var sendButton = this.widget.querySelector('#chatbot-send-button');
+        var sendButton = this.widget.querySelector('#chatbot-send');
         if (input) {
           input.disabled = true;
           input.placeholder = 'No websites available for chat';
@@ -630,9 +850,9 @@ var ChatFlowSDK = (function (exports) {
     }, {
       key: "selectSite",
       value: function () {
-        var _selectSite = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(fileId, siteName, siteUrl) {
-          return _regenerator().w(function (_context5) {
-            while (1) switch (_context5.n) {
+        var _selectSite = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(fileId, siteName, siteUrl) {
+          return _regenerator().w(function (_context8) {
+            while (1) switch (_context8.n) {
               case 0:
                 // Directly apply site selection without any UI interactions
                 console.log('🎯 Selecting site:', siteName, 'with fileId:', fileId);
@@ -647,16 +867,16 @@ var ChatFlowSDK = (function (exports) {
 
                 // Auto-detect and load theme
                 console.log('🔄 Starting theme auto-detection...');
-                _context5.n = 1;
+                _context8.n = 1;
                 return this.autoDetectAndLoadTheme(fileId);
               case 1:
                 console.log('✅ Theme auto-detection completed');
               case 2:
-                return _context5.a(2);
+                return _context8.a(2);
             }
-          }, _callee5, this);
+          }, _callee8, this);
         }));
-        function selectSite(_x, _x2, _x3) {
+        function selectSite(_x2, _x3, _x4) {
           return _selectSite.apply(this, arguments);
         }
         return selectSite;
@@ -696,6 +916,10 @@ var ChatFlowSDK = (function (exports) {
     }, {
       key: "destroy",
       value: function destroy() {
+        // Clear refresh interval
+        if (this.configRefreshInterval) {
+          clearInterval(this.configRefreshInterval);
+        }
         if (this.widget) {
           this.widget.remove();
         }
@@ -705,15 +929,18 @@ var ChatFlowSDK = (function (exports) {
     }, {
       key: "loadSdkConfiguration",
       value: function () {
-        var _loadSdkConfiguration = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-          var response, data, config, firstSite, _t4;
-          return _regenerator().w(function (_context6) {
-            while (1) switch (_context6.p = _context6.n) {
+        var _loadSdkConfiguration = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+          var timestamp, response, data, config, firstSite, _t6;
+          return _regenerator().w(function (_context9) {
+            while (1) switch (_context9.p = _context9.n) {
               case 0:
-                _context6.p = 0;
+                _context9.p = 0;
                 console.log('🔧 Loading SDK configuration from API...');
-                _context6.n = 1;
-                return fetch("".concat(this.baseUrl, "/sdk-config"), {
+
+                // Add cache-busting timestamp to ensure fresh data
+                timestamp = new Date().getTime();
+                _context9.n = 1;
+                return fetch("".concat(this.baseUrl, "/sdk-config?t=").concat(timestamp), {
                   method: 'GET',
                   headers: {
                     'Content-Type': 'application/json',
@@ -721,36 +948,45 @@ var ChatFlowSDK = (function (exports) {
                   }
                 });
               case 1:
-                response = _context6.v;
-                _context6.n = 2;
+                response = _context9.v;
+                _context9.n = 2;
                 return response.json();
               case 2:
-                data = _context6.v;
+                data = _context9.v;
                 console.log('📊 SDK Config Response:', data);
                 if (data.success && data.data) {
                   config = data.data; // Store configuration
                   this.sdkConfig = config;
 
-                  // Set theme based on user's choice, but respect explicit script tag settings
-                  if (this.options.themeStyle === 'default') {
-                    // Explicit default theme from script tag - don't override
-                    console.log('🎯 Using explicit default theme from script tag');
-                  } else if (this.options.themeStyle === 'website') {
-                    // Explicit website theme from script tag
-                    console.log('🎯 Using explicit website theme from script tag');
-                    if (config.themeData) {
-                      this.websiteTheme = config.themeData;
-                    }
-                  } else if (this.options.themeStyle === 'auto') {
-                    // Auto-detect theme based on API configuration
-                    if (config.integration.themeChoice === 'website' && config.themeData) {
-                      console.log('✅ Auto-detected website theme, applying...');
-                      this.options.themeStyle = 'website';
-                      this.websiteTheme = config.themeData;
-                    } else {
-                      console.log('ℹ️ Auto-detected default theme (user choice or no theme data)');
-                      this.options.themeStyle = 'default';
-                    }
+                  // Apply all settings from API configuration
+                  console.log('🔧 Applying configuration from API...');
+
+                  // Set position from API integration settings
+                  if (config.integration.customizations && config.integration.customizations.position) {
+                    this.options.position = config.integration.customizations.position;
+                    console.log('📍 Position set from API:', this.options.position);
+                  }
+
+                  // Set title from API integration settings
+                  if (config.integration.customizations && config.integration.customizations.title) {
+                    this.options.title = config.integration.customizations.title;
+                    console.log('📝 Title set from API:', this.options.title);
+                  }
+
+                  // Set placeholder from API integration settings
+                  if (config.integration.customizations && config.integration.customizations.placeholder) {
+                    this.options.placeholder = config.integration.customizations.placeholder;
+                    console.log('💬 Placeholder set from API:', this.options.placeholder);
+                  }
+
+                  // Set theme based on API configuration
+                  if (config.integration.themeChoice === 'website' && config.themeData) {
+                    console.log('✅ Using website theme from API');
+                    this.options.themeStyle = 'website';
+                    this.websiteTheme = config.themeData;
+                  } else {
+                    console.log('🎨 Using default theme from API');
+                    this.options.themeStyle = 'default';
                   }
 
                   // Set selected website
@@ -778,17 +1014,17 @@ var ChatFlowSDK = (function (exports) {
                   console.error('❌ Failed to load SDK configuration');
                   this.showNoSitesMessage();
                 }
-                _context6.n = 4;
+                _context9.n = 4;
                 break;
               case 3:
-                _context6.p = 3;
-                _t4 = _context6.v;
-                console.error('❌ Error loading SDK configuration:', _t4);
+                _context9.p = 3;
+                _t6 = _context9.v;
+                console.error('❌ Error loading SDK configuration:', _t6);
                 this.showNoSitesMessage();
               case 4:
-                return _context6.a(2);
+                return _context9.a(2);
             }
-          }, _callee6, this, [[0, 3]]);
+          }, _callee9, this, [[0, 3]]);
         }));
         function loadSdkConfiguration() {
           return _loadSdkConfiguration.apply(this, arguments);
@@ -844,20 +1080,20 @@ var ChatFlowSDK = (function (exports) {
     }, {
       key: "getDefaultThemeColors",
       value: function getDefaultThemeColors() {
-        console.log('🎨 Using default theme colors');
+        console.log('🎨 Using default gradient theme colors');
         return {
           primary: '#667eea',
-          primaryDark: '#5a6fd8',
+          primaryDark: '#764ba2',
           primaryLight: '#7c8bf0',
-          secondary: '#6c757d',
-          background: '#ffffff',
-          text: '#333333',
-          border: '#dee2e6',
+          secondary: '#f093fb',
+          background: '#f8f9fa',
+          text: '#2d3748',
+          border: '#e2e8f0',
           button: '#667eea',
           link: '#667eea',
-          accent: '#667eea',
-          userBg: '#667eea',
-          botBg: '#f1f3f5',
+          accent: '#764ba2',
+          userBg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          botBg: '#ffffff',
           headerBg: '#667eea',
           headerText: '#ffffff'
         };
@@ -1018,56 +1254,56 @@ var ChatFlowSDK = (function (exports) {
     }, {
       key: "autoDetectAndLoadTheme",
       value: function () {
-        var _autoDetectAndLoadTheme = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(fileId) {
-          var themeLoaded, _t5;
-          return _regenerator().w(function (_context7) {
-            while (1) switch (_context7.p = _context7.n) {
+        var _autoDetectAndLoadTheme = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(fileId) {
+          var themeLoaded, _t7;
+          return _regenerator().w(function (_context0) {
+            while (1) switch (_context0.p = _context0.n) {
               case 0:
-                _context7.p = 0;
+                _context0.p = 0;
                 console.log('🔄 Auto-detecting and loading theme for fileId:', fileId);
 
                 // Only attempt theme loading if themeStyle is set to 'website' or 'auto'
                 if (!(this.options.themeStyle === 'default')) {
-                  _context7.n = 1;
+                  _context0.n = 1;
                   break;
                 }
                 console.log('🎯 Theme style is set to default, skipping auto-detection');
-                return _context7.a(2, false);
+                return _context0.a(2, false);
               case 1:
-                _context7.n = 2;
+                _context0.n = 2;
                 return this.loadWebsiteTheme(fileId);
               case 2:
-                themeLoaded = _context7.v;
+                themeLoaded = _context0.v;
                 if (!themeLoaded) {
-                  _context7.n = 3;
+                  _context0.n = 3;
                   break;
                 }
                 console.log('✅ Website theme auto-detected and applied successfully');
                 this.options.themeStyle = 'website'; // Update to reflect successful theme loading
-                return _context7.a(2, true);
+                return _context0.a(2, true);
               case 3:
                 console.log('⚠️ Website theme auto-detection failed, falling back to default');
                 this.options.themeStyle = 'default'; // Fallback to default
                 this.websiteTheme = null;
                 this.createStyles(); // Re-apply styles with default theme
-                return _context7.a(2, false);
+                return _context0.a(2, false);
               case 4:
-                _context7.n = 6;
+                _context0.n = 6;
                 break;
               case 5:
-                _context7.p = 5;
-                _t5 = _context7.v;
-                console.error('❌ Error in auto-detect theme:', _t5);
+                _context0.p = 5;
+                _t7 = _context0.v;
+                console.error('❌ Error in auto-detect theme:', _t7);
                 this.options.themeStyle = 'default';
                 this.websiteTheme = null;
                 this.createStyles();
-                return _context7.a(2, false);
+                return _context0.a(2, false);
               case 6:
-                return _context7.a(2);
+                return _context0.a(2);
             }
-          }, _callee7, this, [[0, 5]]);
+          }, _callee0, this, [[0, 5]]);
         }));
-        function autoDetectAndLoadTheme(_x4) {
+        function autoDetectAndLoadTheme(_x5) {
           return _autoDetectAndLoadTheme.apply(this, arguments);
         }
         return autoDetectAndLoadTheme;
@@ -1075,16 +1311,19 @@ var ChatFlowSDK = (function (exports) {
     }, {
       key: "loadWebsiteTheme",
       value: function () {
-        var _loadWebsiteTheme = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(fileId) {
-          var response, data, colors, hasValidTheme, _t6;
-          return _regenerator().w(function (_context8) {
-            while (1) switch (_context8.p = _context8.n) {
+        var _loadWebsiteTheme = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(fileId) {
+          var timestamp, response, data, _t8;
+          return _regenerator().w(function (_context1) {
+            while (1) switch (_context1.p = _context1.n) {
               case 0:
-                _context8.p = 0;
+                _context1.p = 0;
                 console.log('🌐 Fetching theme data from API for fileId:', fileId);
                 console.log('🔗 API URL:', "".concat(this.baseUrl, "/theme/").concat(fileId));
-                _context8.n = 1;
-                return fetch("".concat(this.baseUrl, "/theme/").concat(fileId), {
+
+                // Add cache-busting timestamp for fresh theme data
+                timestamp = new Date().getTime();
+                _context1.n = 1;
+                return fetch("".concat(this.baseUrl, "/theme/").concat(fileId, "?t=").concat(timestamp), {
                   method: 'GET',
                   headers: {
                     'Content-Type': 'application/json',
@@ -1092,86 +1331,51 @@ var ChatFlowSDK = (function (exports) {
                   }
                 });
               case 1:
-                response = _context8.v;
+                response = _context1.v;
                 console.log('📡 API Response status:', response.status);
-                _context8.n = 2;
+                _context1.n = 2;
                 return response.json();
               case 2:
-                data = _context8.v;
+                data = _context1.v;
                 console.log('📊 API Response data:', data);
                 if (!(data.success && data.data && data.data.colors)) {
-                  _context8.n = 5;
+                  _context1.n = 3;
                   break;
                 }
-                // Validate that we have meaningful theme colors (not just defaults)
-                colors = data.data.colors;
-                hasValidTheme = this.validateThemeColors(colors);
-                if (!hasValidTheme) {
-                  _context8.n = 3;
-                  break;
-                }
+                // Always use theme data if available - remove strict validation
                 this.websiteTheme = data.data;
                 console.log('✅ Website theme loaded successfully:', this.websiteTheme);
                 console.log('🎨 Extracted colors:', this.websiteTheme.colors);
 
                 // Re-apply styles with new theme
                 this.createStyles();
-                return _context8.a(2, true);
+                return _context1.a(2, true);
               case 3:
-                console.warn('⚠️ Theme colors appear to be generic defaults, not using');
-                return _context8.a(2, false);
-              case 4:
-                _context8.n = 6;
-                break;
-              case 5:
                 console.warn('⚠️ No theme data available in API response');
                 console.log('📋 Response details:', {
                   success: data.success,
                   hasData: !!data.data,
                   hasColors: !!(data.data && data.data.colors)
                 });
-                return _context8.a(2, false);
-              case 6:
-                _context8.n = 8;
+                return _context1.a(2, false);
+              case 4:
+                _context1.n = 6;
                 break;
-              case 7:
-                _context8.p = 7;
-                _t6 = _context8.v;
-                console.error('❌ Error loading website theme:', _t6);
-                return _context8.a(2, false);
-              case 8:
-                return _context8.a(2);
+              case 5:
+                _context1.p = 5;
+                _t8 = _context1.v;
+                console.error('❌ Error loading website theme:', _t8);
+                return _context1.a(2, false);
+              case 6:
+                return _context1.a(2);
             }
-          }, _callee8, this, [[0, 7]]);
+          }, _callee1, this, [[0, 5]]);
         }));
-        function loadWebsiteTheme(_x5) {
+        function loadWebsiteTheme(_x6) {
           return _loadWebsiteTheme.apply(this, arguments);
         }
         return loadWebsiteTheme;
       }()
-    }, {
-      key: "validateThemeColors",
-      value: function validateThemeColors(colors) {
-        // Check if the theme contains website-specific colors (not generic defaults)
-        var genericDefaults = ['#667eea', '#6c757d', '#ffffff', '#333333', '#000000'];
-
-        // If primary color is not a generic default, consider it valid
-        if (colors.primary && !genericDefaults.includes(colors.primary.toLowerCase())) {
-          console.log('✅ Valid website-specific primary color detected:', colors.primary);
-          return true;
-        }
-
-        // Check if we have multiple distinct colors that suggest a real theme
-        var distinctColors = new Set();
-        Object.values(colors).forEach(function (color) {
-          if (color && !genericDefaults.includes(color.toLowerCase())) {
-            distinctColors.add(color.toLowerCase());
-          }
-        });
-        var hasDistinctTheme = distinctColors.size >= 2;
-        console.log("\uD83D\uDD0D Theme validation: ".concat(distinctColors.size, " distinct colors found"), Array.from(distinctColors));
-        return hasDistinctTheme;
-      }
     }, {
       key: "darkenColor",
       value: function darkenColor(color, percent) {
@@ -1234,18 +1438,11 @@ var ChatFlowSDK = (function (exports) {
       console.error('ChatBot SDK: API key is required. Add data-api-key="YOUR_API_KEY" to the script tag.');
       return;
     }
+    console.log('🔧 Initializing ChatBot SDK with API-only configuration...');
 
-    // Get optional configuration from data attributes
+    // Only get baseUrl from data attributes - everything else comes from API
     var config = {
-      baseUrl: currentScript.getAttribute('data-base-url') || undefined,
-      position: currentScript.getAttribute('data-position') || 'bottom-right',
-      // Check for explicit theme setting, otherwise auto-detect
-      themeStyle: currentScript.getAttribute('data-theme') || 'auto',
-      title: currentScript.getAttribute('data-title') || 'ChatFlow AI Assistant',
-      placeholder: currentScript.getAttribute('data-placeholder') || 'Ask me anything about this website...',
-      autoScrape: currentScript.getAttribute('data-auto-scrape') !== 'false',
-      preselectedSite: currentScript.getAttribute('data-preselected-site') || null,
-      hideSelector: currentScript.getAttribute('data-hide-selector') === 'true'
+      baseUrl: currentScript.getAttribute('data-base-url') || undefined
     };
 
     // Initialize the chatbot
@@ -1262,7 +1459,7 @@ var ChatFlowSDK = (function (exports) {
         }
       });
       document.dispatchEvent(event);
-      console.log('ChatFlow AI SDK initialized successfully');
+      console.log('ChatFlow AI SDK initialized successfully - all settings loaded from API');
     } catch (error) {
       console.error('ChatBot SDK: Failed to initialize:', error);
     }
@@ -1275,6 +1472,9 @@ var ChatFlowSDK = (function (exports) {
     // DOM is already ready
     initializeChatBot();
   }
+
+  // Log initialization method
+  console.log('📦 ChatFlow AI SDK loaded - Configuration will be fetched from API');
 
   exports.ChatBot = ChatBot;
   exports.default = ChatBot;
