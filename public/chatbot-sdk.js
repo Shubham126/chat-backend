@@ -70,7 +70,7 @@ var ChatFlowSDK = (function (exports) {
     return e;
   }
   function _regenerator() {
-    /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */
+    /*! regenerator-runtime -- Copyright (c) 2014-present,  Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */
     var e,
       t,
       r = "function" == typeof Symbol ? Symbol : {},
@@ -134,13 +134,13 @@ var ChatFlowSDK = (function (exports) {
       }(r, o, i), true), u;
     }
     var a = {};
-    function Generator() {}
-    function GeneratorFunction() {}
-    function GeneratorFunctionPrototype() {}
+    function Generator() { }
+    function GeneratorFunction() { }
+    function GeneratorFunctionPrototype() { }
     t = Object.getPrototypeOf;
     var c = [][n] ? t(t([][n]())) : (_regeneratorDefine(t = {}, n, function () {
-        return this;
-      }), t),
+      return this;
+    }), t),
       u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c);
     function f(e) {
       return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e;
@@ -185,7 +185,7 @@ var ChatFlowSDK = (function (exports) {
       if ("object" != typeof i) return i;
       throw new TypeError("@@toPrimitive must return a primitive value.");
     }
-    return (String )(t);
+    return (String)(t);
   }
   function _toPropertyKey(t) {
     var i = _toPrimitive(t, "string");
@@ -718,18 +718,20 @@ var ChatFlowSDK = (function (exports) {
       value: function formatBotMessage(text) {
         // Clean up the text and format it properly
         var formattedText = text
-        // Remove excessive whitespace and line breaks
-        .replace(/\n\s*\n\s*\n/g, '\n\n')
-        // Format headers (process before bold to avoid conflicts)
-        .replace(/^## (.+)$/gm, '<div class="bot-header">$1</div>').replace(/^# (.+)$/gm, '<div class="bot-title">$1</div>')
-        // Format bold text (process before bullet points to avoid ** being caught as bullets)
-        .replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>')
-        // Format bullet points (only match single * at start of line)
-        .replace(/^\* (.+)$/gm, '<div class="bot-bullet">• $1</div>')
-        // Format numbered lists
-        .replace(/^(\d+)\. (.+)$/gm, '<div class="bot-numbered">$1. $2</div>')
-        // Convert line breaks to proper spacing
-        .replace(/\n/g, '<br>');
+          // Remove excessive whitespace and line breaks
+          .replace(/\n\s*\n\s*\n/g, '\n\n')
+          // Format bold text FIRST (before any other formatting)
+          // This handles **text** anywhere in the string
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          // Format headers (process after bold to allow bold in headers)
+          .replace(/^## (.+)$/gm, '<div class="bot-header">$1</div>')
+          .replace(/^# (.+)$/gm, '<div class="bot-title">$1</div>')
+          // Format bullet points (only match single * at start of line, not **)
+          .replace(/^(?!\*)\* (.+)$/gm, '<div class="bot-bullet">• $1</div>')
+          // Format numbered lists
+          .replace(/^(\d+)\. (.+)$/gm, '<div class="bot-numbered">$1. $2</div>')
+          // Convert line breaks to proper spacing
+          .replace(/\n/g, '<br>');
 
         // Wrap in a container for better styling
         return "<div class=\"bot-message-content\">".concat(formattedText, "</div>");
@@ -1106,12 +1108,12 @@ var ChatFlowSDK = (function (exports) {
 
         // List of generic/default colors that shouldn't be used as brand colors
         var genericColors = ['#ffffff', '#fff', 'white', '#000000', '#000', 'black', '#333333', '#333', '#666666', '#666', '#999999', '#999', '#cccccc', '#ccc', '#f0f0f0', '#f5f5f5', '#fafafa', '#007bff', '#0056b3', '#0d6efd',
-        // Bootstrap blues
-        '#dc3545', '#28a745', '#ffc107',
-        // Bootstrap semantic colors
-        '#17a2b8', '#6c757d', '#343a40',
-        // Bootstrap grays
-        '#667eea', '#764ba2' // Common gradient colors
+          // Bootstrap blues
+          '#dc3545', '#28a745', '#ffc107',
+          // Bootstrap semantic colors
+          '#17a2b8', '#6c757d', '#343a40',
+          // Bootstrap grays
+          '#667eea', '#764ba2' // Common gradient colors
         ];
 
         // Check if it's a generic color
